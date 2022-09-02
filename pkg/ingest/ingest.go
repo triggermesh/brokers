@@ -7,52 +7,87 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/config"
 )
 
-type Instance struct {
-	backend backend.Interface
-	logger  *zap.Logger
+type CloudEventHandler func(context.Context, *cloudevents.Event) error
+type ProbeHandler func() error
 
-	context         context.Context
-	componentsRoute map[string]map[string]func(w http.ResponseWriter, r *http.Request)
+type Instance struct {
+	ceHandler    CloudEventHandler
+	probeHandler ProbeHandler
+
+	logger *zap.Logger
 }
 
-func NewInstance(backend backend.Interface, logger *zap.Logger) *Instance {
+func NewInstance(logger *zap.Logger) *Instance {
 	return &Instance{
-		backend:         backend,
-		logger:          logger,
-		componentsRoute: map[string]map[string]func(w http.ResponseWriter, r *http.Request){},
+		logger: logger,
 	}
 }
 
 func (s *Instance) Start(ctx context.Context) error {
+	if s.logger == nil {
+		panic("logger is nil!")
+	}
+
 	r := mux.NewRouter()
-	s.context = ctx
+
+	p, err := cloudevents.NewHTTP()
+	if err != nil {
+		return fmt.Errorf("could not create a CloudEvents HTTP client: %w", err)
+	}
+
+	h, err := cloudevents.NewHTTPReceiveHandler(ctx, p, s.cloudEventsHandler)
+	if err != nil {
+		return fmt.Errorf("failed to create CloudEvents handler: %v", err.Error())
+	}
+
+	r.Handle("/", h)
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		err := s.backend.Probe(r.Context())
-		if err == nil {
-			w.Write([]byte(`{"ok": "true"}`))
+		if err := s.probeHandler(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
 			return
 		}
 
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
+		w.Write([]byte(`{"ok": "true"}`))
 	})
 
-	r.HandleFunc("/ingest/", s.cloudEventsHandler)
-	// TODO Configure broker listener
-
-	s.logger.Info("Listening on :8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		return fmt.Errorf("unable to start http server, %s", err)
+	srv := &http.Server{
+		Addr:         ":8080",
+		WriteTimeout: time.Second * 10,
+		ReadTimeout:  time.Second * 10,
+		IdleTimeout:  time.Second * 60,
+		Handler:      r, // Pass our instance of gorilla/mux in.
 	}
+
+	var srverr error
+	go func() {
+		s.logger.Info("Listening on :8080")
+		if err := srv.ListenAndServe(); err != nil {
+			srverr = fmt.Errorf("unable to start HTTP server, %s", err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	if srverr != nil {
+		return srverr
+	}
+
+	s.logger.Info("Exiting HTTP server")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
 
 	return nil
 }
@@ -61,6 +96,26 @@ func (s *Instance) UpdateFromConfig(c *config.Config) {
 	s.logger.Info("Server UpdateFromConfig ...")
 }
 
-func (s *Instance) cloudEventsHandler(w http.ResponseWriter, r *http.Request) {
-	s.logger.Info("dealing with incoming CloudEvent")
+func (s *Instance) RegisterCloudEventHandler(h CloudEventHandler) {
+	s.ceHandler = h
+}
+
+func (s *Instance) RegisterProbeHandler(h ProbeHandler) {
+	s.probeHandler = h
+}
+
+func (s *Instance) cloudEventsHandler(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, protocol.Result) {
+	s.logger.Debug(fmt.Sprintf("Received CloudEvent: %v", event.String()))
+
+	if s.ceHandler == nil {
+		s.logger.Error("CloudEvent lost due to no handler configured")
+		return nil, protocol.ResultNACK
+	}
+
+	if err := s.ceHandler(ctx, &event); err != nil {
+		s.logger.Error("Could not produce CloudEvent to broker", zap.Error(err))
+		return nil, protocol.ResultNACK
+	}
+
+	return nil, protocol.ResultACK
 }

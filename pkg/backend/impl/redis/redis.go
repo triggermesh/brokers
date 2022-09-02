@@ -25,7 +25,7 @@ const (
 	ceKey = "ce"
 )
 
-func New(logger *zap.Logger, args *RedisArgs) backend.Interface {
+func New(args *RedisArgs, logger *zap.Logger) backend.Interface {
 	return &redis{
 		args:   args,
 		logger: logger,
@@ -67,7 +67,6 @@ func (s *redis) Init(ctx context.Context) error {
 }
 
 func (s *redis) Disconnect() error {
-	// TODO signal start routine to stop reading from the consumer group.
 	return s.client.Close()
 }
 
@@ -96,10 +95,23 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 }
 
 func (s *redis) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
-	// start reading all pending messages
+	// Start reading all pending messages
 	id := "0"
 
+	// Manage context termination
+	exitLoop := false
+
+	go func() {
+		<-ctx.Done()
+		exitLoop = true
+	}()
+
 	for {
+		// If context is done exit the loop
+		if exitLoop {
+			break
+		}
+
 		streams, err := s.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
 			Group:    s.args.Group,
 			Consumer: s.args.Instance,
@@ -111,8 +123,10 @@ func (s *redis) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
 
 		if err != nil {
 			// Ignore errors when the blocking period ends without
-			// receiving any event.
-			if !strings.HasSuffix(err.Error(), "i/o timeout") {
+			// receiving any event, and errors when the context is
+			// canceled
+			if !strings.HasSuffix(err.Error(), "i/o timeout") &&
+				err.Error() != "context canceled" {
 				s.logger.Error("could not read CloudEvent from consumer group", zap.Error(err))
 			}
 			continue
@@ -171,6 +185,7 @@ func (s *redis) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
 		}
 
 	}
+	s.logger.Info("Exiting Redis reader")
 }
 
 func (s *redis) ack(ctx context.Context, id string) error {

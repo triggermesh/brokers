@@ -4,21 +4,17 @@
 package subscriptions
 
 import (
-	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/config"
 	"go.uber.org/zap"
 )
 
 type Manager struct {
-	backend backend.Interface
-
 	logger *zap.Logger
 }
 
-func New(backend backend.Interface, logger *zap.Logger) *Manager {
+func New(logger *zap.Logger) *Manager {
 	return &Manager{
-		backend: backend,
-		logger:  logger,
+		logger: logger,
 	}
 }
 

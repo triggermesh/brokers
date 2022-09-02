@@ -6,6 +6,11 @@ package broker
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"golang.org/x/sync/errgroup"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/triggermesh/brokers/pkg/backend"
@@ -16,20 +21,27 @@ import (
 
 type Instance struct {
 	backend      backend.Interface
-	ingest       ingest.Instance
-	subscription subscriptions.Manager
+	ingest       *ingest.Instance
+	subscription *subscriptions.Manager
 
 	logger *zap.Logger
 }
 
 func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, logger *zap.Logger) *Instance {
 	return &Instance{
-		backend: backend,
-		logger:  logger,
+		backend:      backend,
+		ingest:       ingest,
+		logger:       logger,
+		subscription: subscription,
 	}
 }
 
-func (i *Instance) Start(ctx context.Context) error {
+func (i *Instance) Start(inctx context.Context) error {
+	sigctx, stop := signal.NotifyContext(inctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	grp, ctx := errgroup.WithContext(sigctx)
+
 	// Initialization will create structures, execute migrations
 	// and claim non processed messages from the backend.
 	err := i.backend.Init(ctx)
@@ -40,9 +52,23 @@ func (i *Instance) Start(ctx context.Context) error {
 	// Start is a blocking function that will read messages from the backend
 	// implementation and send them to the generic dispatcher.
 	// When the dispatcher returns the message is marked as processed.
-	i.backend.Start(ctx, i.dispatch)
+	grp.Go(func() error {
+		i.backend.Start(ctx, i.dispatch)
+		return nil
+	})
 
-	return i.backend.Disconnect()
+	// Disconnect from backend after subscription manager and
+	// ingest server are done.
+	defer i.backend.Disconnect()
+
+	// Start the server that ingests CloudEvents and push sends
+	// to
+	grp.Go(func() error {
+		err := i.ingest.Start(ctx)
+		return err
+	})
+
+	return grp.Wait()
 }
 
 func (i *Instance) dispatch(event *cloudevents.Event) {

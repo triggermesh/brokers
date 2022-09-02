@@ -22,25 +22,28 @@ type StartCmd struct {
 func (c *StartCmd) Run(globals *Globals) error {
 	globals.logger.Info("Starting gateway")
 
-	// Create backend client
-	b := redis.New(globals.logger, &c.Redis)
+	// Create backend client.
+	b := redis.New(&c.Redis, globals.logger.Named("redis"))
 
-	// Create ingest server. A reference to the backend is passed
-	// to produce new events from the server.
-	i := ingest.NewInstance(b, globals.logger)
+	// Create the subscription manager.
+	sm := subscriptions.New(globals.logger.Named("subs"))
 
-	// Create the subscription manager. A reference to the backend
-	// is passed to receive and dispatch events.
-	sm := subscriptions.New(b, globals.logger)
+	// Create ingest server. Register the CloudEvents
+	// handler to send received CE to the backend.
+	i := ingest.NewInstance(globals.logger.Named("ingest"))
+	i.RegisterCloudEventHandler(b.Produce)
+
+	// TODO register probes
+	// TODO register subscriptor
 
 	// The ConfigWatcher will read the configfile and call registered
 	// callbacks upon start and everytime the configuration file
 	// is updated.
-	cfw, err := fs.NewCachedFileWatcher(globals.logger)
+	cfw, err := fs.NewCachedFileWatcher(globals.logger.Named("fswatch"))
 	if err != nil {
 		return err
 	}
-	cfgw := config.NewWatcher(cfw, c.ConfigPath, globals.logger)
+	cfgw := config.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
 
 	// ConfigWatcher will callback reconfigurations for:
 	// - Ingest: if authentication parameters are updated.
