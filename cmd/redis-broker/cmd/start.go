@@ -51,9 +51,9 @@ func (c *StartCmd) Run(globals *Globals) error {
 	cfgw.AddCallback(i.UpdateFromConfig)
 	cfgw.AddCallback(sm.UpdateFromConfig)
 
-	// TODO Create broker to coordinate all of the above
+	// Create broker to start all runtimer elements
 	// an manage signaling
-	bi := broker.NewInstance(b, i, sm, globals.logger)
+	bi := broker.NewInstance(b, i, sm, cfgw, globals.logger)
 
 	return bi.Start(globals.context)
 }

@@ -93,7 +93,7 @@ func (s *Instance) Start(ctx context.Context) error {
 }
 
 func (s *Instance) UpdateFromConfig(c *config.Config) {
-	s.logger.Info("Server UpdateFromConfig ...")
+	s.logger.Info("Ingest Server UpdateFromConfig ...")
 }
 
 func (s *Instance) RegisterCloudEventHandler(h CloudEventHandler) {

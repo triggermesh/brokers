@@ -4,6 +4,10 @@
 package subscriptions
 
 import (
+	"fmt"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+
 	"github.com/triggermesh/brokers/pkg/config"
 	"go.uber.org/zap"
 )
@@ -20,4 +24,11 @@ func New(logger *zap.Logger) *Manager {
 
 func (s *Manager) UpdateFromConfig(c *config.Config) {
 	s.logger.Info("Subscription Manager UpdateFromConfig ...")
+
+	// Compare with existing
+}
+
+func (s *Manager) DispatchCloudEvent(event *cloudevents.Event) {
+	s.logger.Info(fmt.Sprintf("Processing CloudEvent: %v", event))
+	// TODO subscription management should ocurr here.
 }
