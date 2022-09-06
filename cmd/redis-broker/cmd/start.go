@@ -26,7 +26,10 @@ func (c *StartCmd) Run(globals *Globals) error {
 	b := redis.New(&c.Redis, globals.logger.Named("redis"))
 
 	// Create the subscription manager.
-	sm := subscriptions.New(globals.logger.Named("subs"))
+	sm, err := subscriptions.New(globals.logger.Named("subs"))
+	if err != nil {
+		return err
+	}
 
 	// Create ingest server. Register the CloudEvents
 	// handler to send received CE to the backend.

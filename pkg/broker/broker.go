@@ -69,8 +69,7 @@ func (i *Instance) Start(inctx context.Context) error {
 	// since it cleanly exits when context is done.
 	i.cw.Start(ctx)
 
-	// Start the server that ingests CloudEvents and push sends
-	// to
+	// Start the server that ingests CloudEvents.
 	grp.Go(func() error {
 		err := i.ingest.Start(ctx)
 		return err
