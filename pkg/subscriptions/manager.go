@@ -10,33 +10,45 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"knative.dev/pkg/logging"
-
-	"github.com/triggermesh/brokers/pkg/config"
 	"go.uber.org/zap"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/eventing/pkg/eventfilter"
 	"knative.dev/eventing/pkg/eventfilter/subscriptionsapi"
+	"knative.dev/pkg/logging"
+
+	"github.com/triggermesh/brokers/pkg/config"
 )
 
 type Manager struct {
-	logger *zap.Logger
+	logger   *zap.Logger
+	ceClient cloudevents.Client
 
 	triggers []config.Trigger
 	ctx      context.Context
 	m        sync.RWMutex
 }
 
-func New(logger *zap.Logger) *Manager {
+func New(logger *zap.Logger) (*Manager, error) {
 	// Needed for Knative filters
 	ctx := context.Background()
 	ctx = logging.WithLogger(ctx, logger.Sugar())
 
-	return &Manager{
-		logger: logger,
-		ctx:    ctx,
+	p, err := cloudevents.NewHTTP()
+	if err != nil {
+		return nil, fmt.Errorf("Could not create CloudEvents HTTP protocol: %w", err)
 	}
+
+	ceClient, err := cloudevents.NewClient(p)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create CloudEvents HTTP client: %w", err)
+	}
+
+	return &Manager{
+		logger:   logger,
+		ceClient: ceClient,
+		ctx:      ctx,
+	}, nil
 }
 
 func (m *Manager) UpdateFromConfig(c *config.Config) {
@@ -60,14 +72,37 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 	for i := range m.triggers {
 		res := subscriptionsapi.NewAllFilter(materializeFiltersList(m.ctx, m.triggers[i].Filters)...).Filter(m.ctx, *event)
 		if res == eventfilter.FailFilter {
-			// We do not count the event. The event will be counted in the broker ingress.
-			// If the filter didn't pass, it means that the event wasn't meant for this Trigger.
-			m.logger.Info("SKIPPED EVENT", zap.Any("event", *event))
+			m.logger.Debug("Skipped delivery due to filter", zap.Any("event", *event))
 			return
 		}
 
-		// TODO send
-		m.logger.Info("SENT EVENT", zap.Any("event", *event))
+		for j := range m.triggers[i].Targets {
+			// TODO launch routine
+			ctx := cloudevents.ContextWithTarget(m.ctx, m.triggers[i].Targets[j].URL)
+			// TODO set retries
+			result := m.ceClient.Send(ctx, *event)
+			dls := false
+			switch {
+			case cloudevents.IsACK(result):
+				continue
+
+			case cloudevents.IsUndelivered(result):
+				m.logger.Error(fmt.Sprintf("Failed to send event to %s", m.triggers[i].Targets[j].URL),
+					zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+				dls = true
+
+			case cloudevents.IsNACK(result):
+				m.logger.Error(fmt.Sprintf("Event not accepted at %s", m.triggers[i].Targets[j].URL),
+					zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+				dls = true
+			}
+
+			// TODO check if dls is enabled for the target
+			if dls {
+				// TODO send to DLS
+				m.logger.Info("NEED TO SEND TO DLS", zap.Any("event", *event))
+			}
+		}
 	}
 }
 
