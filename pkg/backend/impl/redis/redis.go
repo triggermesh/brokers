@@ -197,6 +197,6 @@ func (s *redis) ack(ctx context.Context, id string) error {
 func (s *redis) Probe(ctx context.Context) error {
 	res := s.client.ClientID(ctx)
 	id, err := res.Result()
-	s.logger.Debug(fmt.Sprintf("DEBUG id is %d", id))
+	s.logger.Debug(fmt.Sprintf("client id is %d", id))
 	return err
 }

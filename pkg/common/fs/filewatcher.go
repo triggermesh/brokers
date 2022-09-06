@@ -5,6 +5,8 @@ package fs
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -76,6 +78,17 @@ func (cw *fileWatcher) Start(ctx context.Context) {
 						return
 					}
 
+					if e.Op&fsnotify.Remove == fsnotify.Remove {
+						if fileExist(e.Name) {
+							if err := cw.watcher.Add(e.Name); err != nil {
+								cw.logger.Error(
+									fmt.Sprintf("could not add the path %q back to the watcher", e.Name),
+									zap.Error(err))
+							}
+						}
+						continue
+					}
+
 					cw.m.RLock()
 					cbs, ok := cw.watchedFiles[e.Name]
 					if !ok {
@@ -101,4 +114,18 @@ func (cw *fileWatcher) Start(ctx context.Context) {
 			}
 		}()
 	})
+}
+
+func fileExist(file string) bool {
+	_, err := os.Stat(file)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		if os.IsNotExist(err) {
+			return false
+		}
+		return false
+	}
+	return true
 }
