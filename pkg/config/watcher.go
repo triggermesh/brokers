@@ -57,14 +57,20 @@ func (cw *Watcher) Start(ctx context.Context) error {
 }
 
 func (cw *Watcher) update(content []byte) {
+	if len(content) == 0 {
+		// Discard file events that do not inform content.
+		cw.logger.Debug(fmt.Sprintf("Received event with empty contents for %s", cw.path))
+		return
+	}
+
 	cfg, err := Parse(string(content))
 	if err != nil {
-		cw.logger.Error(fmt.Sprintf("error parsing config from %s", cw.path), zap.Error(err))
+		cw.logger.Error(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
 		return
 	}
 
 	cw.config = cfg
 	for _, cb := range cw.cbs {
-		cb(cw.config)
+		cb(cfg)
 	}
 }

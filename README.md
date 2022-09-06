@@ -6,6 +6,7 @@ TriggerMesh supported brokers.
 
 Redis Broker needs a Redis backing server to perform pub/sub operations and storage.
 
+
 ```console
 # Create storage folder
 mkdir -p .local/data
@@ -16,6 +17,25 @@ docker run -d -v $PWD/.local/data:/data \
     --name redis-stack-server \
     -p 6379:6379 \
     redis/redis-stack-server:latest
+```
+
+Configuration (WIP) informs about the Triggers that send events to targets.
+
+```yaml
+ingest:
+  user: user11
+  password: password1
+
+triggers:
+- name: trigger1
+  filters:
+  - exact:
+      type: example.type
+  targets:
+  - url: http://localhost:8888
+- name: trigger2
+  targets:
+  - url: http://localhost:9999
 ```
 
 Launch the broker providing parameters for the backing server.
