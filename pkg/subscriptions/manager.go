@@ -36,12 +36,12 @@ func New(logger *zap.Logger) (*Manager, error) {
 
 	p, err := cloudevents.NewHTTP()
 	if err != nil {
-		return nil, fmt.Errorf("Could not create CloudEvents HTTP protocol: %w", err)
+		return nil, fmt.Errorf("could not create CloudEvents HTTP protocol: %w", err)
 	}
 
 	ceClient, err := cloudevents.NewClient(p)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create CloudEvents HTTP client: %w", err)
+		return nil, fmt.Errorf("could not create CloudEvents HTTP client: %w", err)
 	}
 
 	return &Manager{
@@ -66,6 +66,8 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 	m.logger.Info(fmt.Sprintf("Processing CloudEvent: %v", event))
 
+	// TODO improve by creating a copy of triggers for this event and
+	// avoid locking.
 	m.m.RLock()
 	defer m.m.RUnlock()
 
@@ -82,14 +84,14 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				m.DispatchCloudEventToTarget(target, event)
+				m.dispatchCloudEventToTarget(target, event)
 			}()
 		}
 	}
 	wg.Wait()
 }
 
-func (m *Manager) DispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
+func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
 	ctx := cloudevents.ContextWithTarget(m.ctx, target.URL)
 
 	if target.DeliveryOptions != nil && target.DeliveryOptions.Retries > 1 {
@@ -109,28 +111,48 @@ func (m *Manager) DispatchCloudEventToTarget(target *config.Target, event *cloud
 		}
 	}
 
+	if m.send(ctx, event) {
+		return
+	}
+
+	if target.DeliveryOptions != nil && target.DeliveryOptions.DeadLetterURL != "" {
+		ctx = cloudevents.ContextWithTarget(m.ctx, target.DeliveryOptions.DeadLetterURL)
+		if m.send(ctx, event) {
+			return
+		}
+	}
+
+	// Attribute "lost": true is set help log aggregators identify
+	// lost events by querying.
+	m.logger.Error(fmt.Sprintf("Event was lost while sending to %s",
+		cloudevents.TargetFromContext(ctx).String()), zap.Bool("lost", true),
+		zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+}
+
+func (m *Manager) send(ctx context.Context, event *cloudevents.Event) bool {
 	result := m.ceClient.Send(ctx, *event)
-	dls := false
+
 	switch {
 	case cloudevents.IsACK(result):
-		return
+		return true
 
 	case cloudevents.IsUndelivered(result):
-		m.logger.Error(fmt.Sprintf("Failed to send event to %s", target.URL),
+		m.logger.Error(fmt.Sprintf("Failed to send event to %s",
+			cloudevents.TargetFromContext(ctx).String()),
 			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
-		dls = true
+		return false
 
 	case cloudevents.IsNACK(result):
-		m.logger.Error(fmt.Sprintf("Event not accepted at %s", target.URL),
+		m.logger.Error(fmt.Sprintf("Event not accepted at %s",
+			cloudevents.TargetFromContext(ctx).String()),
 			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
-		dls = true
+		return false
 	}
 
-	// TODO check if dls is enabled for the target
-	if dls {
-		// TODO send to DLS
-		m.logger.Info("NEED TO SEND TO DLS", zap.Any("event", *event))
-	}
+	m.logger.Error(fmt.Sprintf("Unknown event send outcome at %s",
+		cloudevents.TargetFromContext(ctx).String()),
+		zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+	return false
 }
 
 // Copied from Knative Eventing
