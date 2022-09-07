@@ -7,10 +7,6 @@ TriggerMesh supported brokers.
 Configuration (WIP) informs about the Triggers that send events to targets.
 
 ```yaml
-ingest:
-  user: user11
-  password: password1
-
 triggers:
 - name: trigger1
   filters:
