@@ -32,6 +32,20 @@ triggers:
       deadLetterURL: http://localhost:9090
 ```
 
+## Usage
+
+Produce CloudEvents by sending then using an HTTP client.
+
+```console
+curl -v  http://localhost:8080/ \
+  -H "Ce-Specversion: 1.0" \
+  -H "Ce-Type: example.type" \
+  -H "Ce-Source: example.source" \
+  -H "Ce-Id: 1234-abcd-x" \
+  -H "Content-Type: application/json" \
+  -d '{"hello":"broker"}'
+```
+
 ## Redis
 
 Redis Broker needs a Redis backing server to perform pub/sub operations and storage.

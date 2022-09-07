@@ -64,8 +64,6 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 }
 
 func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
-	m.logger.Info(fmt.Sprintf("Processing CloudEvent: %v", event))
-
 	// TODO improve by creating a copy of triggers for this event and
 	// avoid locking.
 	m.m.RLock()
