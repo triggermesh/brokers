@@ -43,6 +43,7 @@ triggers:
       retries: 5
       backoffDelay: 5s
       backoffPolicy: constant
+      deadLetterURL: http://localhost:9090
 ```
 
 Launch the broker providing parameters for the backing server.
