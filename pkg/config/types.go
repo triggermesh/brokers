@@ -6,6 +6,7 @@ package config
 import (
 	"context"
 	"net/url"
+	"time"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
@@ -32,15 +33,24 @@ func (i *Ingest) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-type DeliveryOption struct {
-	Retries          int
-	RetriesAlgorithm string
-	DeadLetterTarget *Target
+type BackoffPolicyType string
+
+const (
+	BackoffPolicyConstant    BackoffPolicyType = "constant"
+	BackoffPolicyLinear      BackoffPolicyType = "linear"
+	BackoffPolicyExponential BackoffPolicyType = "exponential"
+)
+
+type DeliveryOptions struct {
+	Retries       int
+	BackoffPolicy BackoffPolicyType `yaml:"backoffPolicy"`
+	BackoffDelay  time.Duration     `yaml:"backoffDelay"`
+	DeadLetterURL string            `yaml:"deadLetterURL"`
 }
 
 type Target struct {
-	URL            string
-	DeliveryOption DeliveryOption
+	URL             string
+	DeliveryOptions *DeliveryOptions `yaml:"deliveryOptions"`
 }
 
 func (i *Target) Validate(ctx context.Context) *apis.FieldError {

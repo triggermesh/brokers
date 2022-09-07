@@ -69,6 +69,7 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 	m.m.RLock()
 	defer m.m.RUnlock()
 
+	var wg sync.WaitGroup
 	for i := range m.triggers {
 		res := subscriptionsapi.NewAllFilter(materializeFiltersList(m.ctx, m.triggers[i].Filters)...).Filter(m.ctx, *event)
 		if res == eventfilter.FailFilter {
@@ -77,32 +78,58 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 		}
 
 		for j := range m.triggers[i].Targets {
-			// TODO launch routine
-			ctx := cloudevents.ContextWithTarget(m.ctx, m.triggers[i].Targets[j].URL)
-			// TODO set retries
-			result := m.ceClient.Send(ctx, *event)
-			dls := false
-			switch {
-			case cloudevents.IsACK(result):
-				continue
-
-			case cloudevents.IsUndelivered(result):
-				m.logger.Error(fmt.Sprintf("Failed to send event to %s", m.triggers[i].Targets[j].URL),
-					zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
-				dls = true
-
-			case cloudevents.IsNACK(result):
-				m.logger.Error(fmt.Sprintf("Event not accepted at %s", m.triggers[i].Targets[j].URL),
-					zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
-				dls = true
-			}
-
-			// TODO check if dls is enabled for the target
-			if dls {
-				// TODO send to DLS
-				m.logger.Info("NEED TO SEND TO DLS", zap.Any("event", *event))
-			}
+			target := &m.triggers[i].Targets[j]
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				m.DispatchCloudEventToTarget(target, event)
+			}()
 		}
+	}
+	wg.Wait()
+}
+
+func (m *Manager) DispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
+	ctx := cloudevents.ContextWithTarget(m.ctx, target.URL)
+
+	if target.DeliveryOptions != nil && target.DeliveryOptions.Retries > 1 {
+
+		switch target.DeliveryOptions.BackoffPolicy {
+		case config.BackoffPolicyLinear:
+			ctx = cloudevents.ContextWithRetriesLinearBackoff(
+				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+
+		case config.BackoffPolicyExponential:
+			ctx = cloudevents.ContextWithRetriesExponentialBackoff(
+				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+
+		default:
+			ctx = cloudevents.ContextWithRetriesConstantBackoff(
+				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+		}
+	}
+
+	result := m.ceClient.Send(ctx, *event)
+	dls := false
+	switch {
+	case cloudevents.IsACK(result):
+		return
+
+	case cloudevents.IsUndelivered(result):
+		m.logger.Error(fmt.Sprintf("Failed to send event to %s", target.URL),
+			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+		dls = true
+
+	case cloudevents.IsNACK(result):
+		m.logger.Error(fmt.Sprintf("Event not accepted at %s", target.URL),
+			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+		dls = true
+	}
+
+	// TODO check if dls is enabled for the target
+	if dls {
+		// TODO send to DLS
+		m.logger.Info("NEED TO SEND TO DLS", zap.Any("event", *event))
 	}
 }
 

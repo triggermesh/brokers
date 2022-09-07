@@ -6,7 +6,6 @@ TriggerMesh supported brokers.
 
 Redis Broker needs a Redis backing server to perform pub/sub operations and storage.
 
-
 ```console
 # Create storage folder
 mkdir -p .local/data
@@ -33,9 +32,17 @@ triggers:
       type: example.type
   targets:
   - url: http://localhost:8888
+    deliveryOptions:
+      retries: 2
+      backoffDelay: 2s
+      backoffPolicy: linear
 - name: trigger2
   targets:
   - url: http://localhost:9999
+    deliveryOptions:
+      retries: 5
+      backoffDelay: 5s
+      backoffPolicy: constant
 ```
 
 Launch the broker providing parameters for the backing server.
