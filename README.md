@@ -2,21 +2,7 @@
 
 TriggerMesh supported brokers.
 
-## Redis
-
-Redis Broker needs a Redis backing server to perform pub/sub operations and storage.
-
-```console
-# Create storage folder
-mkdir -p .local/data
-
-# Run Redis
-docker run -d -v $PWD/.local/data:/data \
-    -e REDIS_ARGS="--appendonly yes" \
-    --name redis-stack-server \
-    -p 6379:6379 \
-    redis/redis-stack-server:latest
-```
+## Configuration
 
 Configuration (WIP) informs about the Triggers that send events to targets.
 
@@ -46,6 +32,22 @@ triggers:
       deadLetterURL: http://localhost:9090
 ```
 
+## Redis
+
+Redis Broker needs a Redis backing server to perform pub/sub operations and storage.
+
+```console
+# Create storage folder
+mkdir -p .local/data
+
+# Run Redis
+docker run -d -v $PWD/.local/data:/data \
+    -e REDIS_ARGS="--appendonly yes" \
+    --name redis-stack-server \
+    -p 6379:6379 \
+    redis/redis-stack-server:latest
+```
+
 Launch the broker providing parameters for the backing server.
 
 ```console
@@ -53,6 +55,10 @@ go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --config-path ".l
 ```
 
 ## Memory
+
+```console
+go run ./cmd/memory-broker start --memory.buffer-size 100 --memory.produce-timeout 1s --config-path ".local/config.yaml"
+```
 
 ## Generate License
 

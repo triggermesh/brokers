@@ -4,7 +4,7 @@
 package cmd
 
 import (
-	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
+	"github.com/triggermesh/brokers/pkg/backend/impl/memory"
 	"github.com/triggermesh/brokers/pkg/broker"
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	"github.com/triggermesh/brokers/pkg/config"
@@ -16,14 +16,14 @@ type StartCmd struct {
 	InstanceName string `help:"Gateway instance name." default:"default"`
 	ConfigPath   string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
 
-	Redis redis.RedisArgs `embed:"" prefix:"redis."`
+	Memory memory.MemoryArgs `embed:"" prefix:"memory."`
 }
 
 func (c *StartCmd) Run(globals *Globals) error {
 	globals.logger.Info("Starting gateway")
 
 	// Create backend client.
-	b := redis.New(&c.Redis, globals.logger.Named("redis"))
+	b := memory.New(&c.Memory, globals.logger.Named("memory"))
 
 	// Create the subscription manager.
 	sm, err := subscriptions.New(globals.logger.Named("subs"))
