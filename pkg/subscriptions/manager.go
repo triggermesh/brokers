@@ -74,7 +74,7 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 		res := subscriptionsapi.NewAllFilter(materializeFiltersList(m.ctx, m.triggers[i].Filters)...).Filter(m.ctx, *event)
 		if res == eventfilter.FailFilter {
 			m.logger.Debug("Skipped delivery due to filter", zap.Any("event", *event))
-			return
+			continue
 		}
 
 		for j := range m.triggers[i].Targets {
