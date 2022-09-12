@@ -30,6 +30,8 @@ func (c *StartCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
+	// Register producer function for ingesting replies.
+	sm.RegisterCloudEventHandler(b.Produce)
 
 	// Create ingest server. Register the CloudEvents
 	// handler to send received CE to the backend.
