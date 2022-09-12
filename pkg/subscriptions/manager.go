@@ -20,9 +20,12 @@ import (
 	"github.com/triggermesh/brokers/pkg/config"
 )
 
+type CloudEventHandler func(context.Context, *cloudevents.Event) error
+
 type Manager struct {
-	logger   *zap.Logger
-	ceClient cloudevents.Client
+	logger    *zap.Logger
+	ceClient  cloudevents.Client
+	ceHandler CloudEventHandler
 
 	triggers []config.Trigger
 	ctx      context.Context
@@ -89,6 +92,10 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 	wg.Wait()
 }
 
+func (m *Manager) RegisterCloudEventHandler(h CloudEventHandler) {
+	m.ceHandler = h
+}
+
 func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
 	ctx := cloudevents.ContextWithTarget(m.ctx, target.URL)
 
@@ -128,10 +135,14 @@ func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloud
 }
 
 func (m *Manager) send(ctx context.Context, event *cloudevents.Event) bool {
-	result := m.ceClient.Send(ctx, *event)
+	// result := m.ceClient.Send(ctx, *event)
+	res, result := m.ceClient.Request(ctx, *event)
 
 	switch {
 	case cloudevents.IsACK(result):
+		if res != nil {
+			m.ceHandler(ctx, res)
+		}
 		return true
 
 	case cloudevents.IsUndelivered(result):
