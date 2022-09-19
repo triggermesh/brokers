@@ -135,13 +135,20 @@ func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloud
 }
 
 func (m *Manager) send(ctx context.Context, event *cloudevents.Event) bool {
-	// result := m.ceClient.Send(ctx, *event)
 	res, result := m.ceClient.Request(ctx, *event)
 
 	switch {
 	case cloudevents.IsACK(result):
 		if res != nil {
-			m.ceHandler(ctx, res)
+			if err := m.ceHandler(ctx, res); err != nil {
+				m.logger.Error(fmt.Sprintf("Failed to consume response from %s",
+					cloudevents.TargetFromContext(ctx).String()),
+					zap.Error(err), zap.String("type", res.Type()), zap.String("source", res.Source()), zap.String("id", res.ID()))
+
+				// Not ingesting the response is considered an error.
+				// TODO make this configurable.
+				return false
+			}
 		}
 		return true
 
