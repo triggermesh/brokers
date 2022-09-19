@@ -10,16 +10,17 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/triggermesh/brokers/pkg/common/fs"
+	"github.com/triggermesh/brokers/pkg/config"
 )
 
-type WatcherCallback func(*Config)
+type WatcherCallback func(*config.Config)
 
 type Watcher struct {
 	cfw    fs.CachedFileWatcher
 	path   string
 	logger *zap.Logger
 
-	config *Config
+	config *config.Config
 	cbs    []WatcherCallback
 }
 
@@ -35,7 +36,7 @@ func (cw *Watcher) AddCallback(cb WatcherCallback) {
 	cw.cbs = append(cw.cbs, cb)
 }
 
-func (cw *Watcher) GetConfig() *Config {
+func (cw *Watcher) GetConfig() *config.Config {
 	return cw.config
 }
 
@@ -63,7 +64,7 @@ func (cw *Watcher) update(content []byte) {
 		return
 	}
 
-	cfg, err := Parse(string(content))
+	cfg, err := config.Parse(string(content))
 	if err != nil {
 		cw.logger.Error(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
 		return

@@ -70,6 +70,13 @@ go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --config-path ".l
 go run ./cmd/memory-broker start --memory.buffer-size 100 --memory.produce-timeout 1s --config-path ".local/config.yaml"
 ```
 
+## Container
+
+```console
+docker build -t my-repo/redis-broker:my-version .
+docker push my-repo/redis-broker:my-version
+```
+
 ## Generate License
 
 Install `addlicense`:

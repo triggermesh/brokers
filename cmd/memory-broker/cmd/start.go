@@ -7,14 +7,13 @@ import (
 	"github.com/triggermesh/brokers/pkg/backend/impl/memory"
 	"github.com/triggermesh/brokers/pkg/broker"
 	"github.com/triggermesh/brokers/pkg/common/fs"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgwatcher "github.com/triggermesh/brokers/pkg/config/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
 )
 
 type StartCmd struct {
-	InstanceName string `help:"Gateway instance name." default:"default"`
-	ConfigPath   string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
+	ConfigPath string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
 
 	Memory memory.MemoryArgs `embed:"" prefix:"memory."`
 }
@@ -47,7 +46,7 @@ func (c *StartCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	cfgw := config.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
+	cfgw := cfgwatcher.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
 
 	// ConfigWatcher will callback reconfigurations for:
 	// - Ingest: if authentication parameters are updated.

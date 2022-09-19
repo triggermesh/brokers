@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/triggermesh/brokers/pkg/backend"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgwatcher "github.com/triggermesh/brokers/pkg/config/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
 	"go.uber.org/zap"
@@ -23,12 +23,12 @@ type Instance struct {
 	backend      backend.Interface
 	ingest       *ingest.Instance
 	subscription *subscriptions.Manager
-	cw           *config.Watcher
+	cw           *cfgwatcher.Watcher
 
 	logger *zap.Logger
 }
 
-func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *config.Watcher, logger *zap.Logger) *Instance {
+func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *cfgwatcher.Watcher, logger *zap.Logger) *Instance {
 	return &Instance{
 		backend:      backend,
 		ingest:       ingest,

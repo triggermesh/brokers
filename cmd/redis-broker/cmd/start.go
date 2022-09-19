@@ -7,7 +7,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
 	"github.com/triggermesh/brokers/pkg/broker"
 	"github.com/triggermesh/brokers/pkg/common/fs"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgwatcher "github.com/triggermesh/brokers/pkg/config/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
 )
@@ -47,7 +47,7 @@ func (c *StartCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	cfgw := config.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
+	cfgw := cfgwatcher.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
 
 	// ConfigWatcher will callback reconfigurations for:
 	// - Ingest: if authentication parameters are updated.
