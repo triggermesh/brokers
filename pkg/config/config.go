@@ -6,7 +6,7 @@ package config
 import (
 	"context"
 
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 func Parse(config string) (*Config, error) {
