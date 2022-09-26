@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/rickb777/date/period"
 	"go.uber.org/zap"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
@@ -99,20 +100,30 @@ func (m *Manager) RegisterCloudEventHandler(h CloudEventHandler) {
 func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
 	ctx := cloudevents.ContextWithTarget(m.ctx, target.URL)
 
-	if target.DeliveryOptions != nil && target.DeliveryOptions.Retries > 1 {
+	if target.DeliveryOptions != nil &&
+		target.DeliveryOptions.Retry != nil &&
+		*target.DeliveryOptions.Retry >= 1 &&
+		target.DeliveryOptions.BackoffPolicy != nil {
 
-		switch target.DeliveryOptions.BackoffPolicy {
+		delay, err := period.Parse(*target.DeliveryOptions.BackoffDelay)
+		if err != nil {
+			m.logger.Error(fmt.Sprintf("Event was lost while sending to %s due to backoff delay parsing",
+				cloudevents.TargetFromContext(ctx).String()), zap.Bool("lost", true),
+				zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()), zap.Error(err))
+		}
+
+		switch *target.DeliveryOptions.BackoffPolicy {
 		case config.BackoffPolicyLinear:
 			ctx = cloudevents.ContextWithRetriesLinearBackoff(
-				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 
 		case config.BackoffPolicyExponential:
 			ctx = cloudevents.ContextWithRetriesExponentialBackoff(
-				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 
 		default:
 			ctx = cloudevents.ContextWithRetriesConstantBackoff(
-				ctx, target.DeliveryOptions.BackoffDelay, target.DeliveryOptions.Retries)
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 		}
 	}
 
@@ -120,8 +131,9 @@ func (m *Manager) dispatchCloudEventToTarget(target *config.Target, event *cloud
 		return
 	}
 
-	if target.DeliveryOptions != nil && target.DeliveryOptions.DeadLetterURL != "" {
-		ctx = cloudevents.ContextWithTarget(m.ctx, target.DeliveryOptions.DeadLetterURL)
+	if target.DeliveryOptions != nil && target.DeliveryOptions.DeadLetterURL != nil &&
+		*target.DeliveryOptions.DeadLetterURL != "" {
+		ctx = cloudevents.ContextWithTarget(m.ctx, *target.DeliveryOptions.DeadLetterURL)
 		if m.send(ctx, event) {
 			return
 		}

@@ -6,7 +6,6 @@ package config
 import (
 	"context"
 	"net/url"
-	"time"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
@@ -42,10 +41,15 @@ const (
 )
 
 type DeliveryOptions struct {
-	Retries       int
-	BackoffPolicy BackoffPolicyType `yaml:"backoffPolicy"`
-	BackoffDelay  time.Duration     `yaml:"backoffDelay"`
-	DeadLetterURL string            `yaml:"deadLetterURL"`
+	Retry         *int32             `json:"retry,omitempty"`
+	BackoffPolicy *BackoffPolicyType `json:"backoffPolicy,omitempty"`
+
+	// BackoffDelay is the delay before retrying.
+	// More information on Duration format:
+	//  - https://www.iso.org/iso-8601-date-and-time-format.html
+	//  - https://en.wikipedia.org/wiki/ISO_8601
+	BackoffDelay  *string `json:"backoffDelay,omitempty"`
+	DeadLetterURL *string `json:"deadLetterURL,omitempty"`
 }
 
 type Target struct {

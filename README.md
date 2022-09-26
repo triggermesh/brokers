@@ -5,6 +5,7 @@ TriggerMesh supported brokers.
 ## Configuration
 
 Configuration (WIP) informs about the Triggers that send events to targets.
+Durations follow [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format
 
 ```yaml
 triggers:
@@ -15,15 +16,15 @@ triggers:
   targets:
   - url: http://localhost:8888
     deliveryOptions:
-      retries: 2
-      backoffDelay: 2s
+      retry: 2
+      backoffDelay: PT2S
       backoffPolicy: linear
 - name: trigger2
   targets:
   - url: http://localhost:9999
     deliveryOptions:
-      retries: 5
-      backoffDelay: 5s
+      retry: 5
+      backoffDelay: PT5S
       backoffPolicy: constant
       deadLetterURL: http://localhost:9090
 ```
