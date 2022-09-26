@@ -13,8 +13,8 @@ import (
 )
 
 type Ingest struct {
-	User     string
-	Password string
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 func (i *Ingest) Validate(ctx context.Context) *apis.FieldError {
@@ -53,8 +53,8 @@ type DeliveryOptions struct {
 }
 
 type Target struct {
-	URL             string
-	DeliveryOptions *DeliveryOptions `yaml:"deliveryOptions"`
+	URL             string           `json:"url"`
+	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
 }
 
 func (i *Target) Validate(ctx context.Context) *apis.FieldError {
@@ -81,9 +81,9 @@ func (i *Target) Validate(ctx context.Context) *apis.FieldError {
 }
 
 type Trigger struct {
-	Name    string
-	Filters []eventingv1.SubscriptionsAPIFilter
-	Targets []Target
+	Name    string                              `json:"name"`
+	Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
+	Targets []Target                            `json:"targets"`
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
@@ -100,8 +100,8 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 }
 
 type Config struct {
-	Ingest   Ingest
-	Triggers []Trigger
+	Ingest   *Ingest   `json:"ingest,omitempty"`
+	Triggers []Trigger `json:"triggers"`
 }
 
 func (c *Config) Validate(ctx context.Context) *apis.FieldError {
