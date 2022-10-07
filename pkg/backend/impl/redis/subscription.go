@@ -105,13 +105,20 @@ func (s *subscription) start() {
 				}
 
 				// If there was no valid CE in the message ACK so that we do not receive it again.
-				if ce.ID() == "" {
-					s.logger.Warn(fmt.Sprintf("Removing non valid message from backend: %s", msg.ID))
-					s.ack(msg.ID)
+				if err = ce.Validate(); err != nil {
+					s.logger.Warn(fmt.Sprintf("Removing non CloudEvent message from backend: %s", msg.ID))
+					if err = s.ack(msg.ID); err != nil {
+						s.logger.Error(fmt.Sprintf("could not ACK the Redis message %s containing a non valid CloudEvent", id),
+							zap.Error(err))
+					}
+
 					continue
 				}
 
-				ce.Context.SetExtension("tmbackendid", msg.ID)
+				if err = ce.Context.SetExtension("tmbackendid", msg.ID); err != nil {
+					s.logger.Error(fmt.Sprintf("could not set tmbackendid attributes for the Redis message %s. Tracking will not be possible.", msg.ID),
+						zap.Error(err))
+				}
 
 				go func() {
 					s.ccbDispatch(ce)

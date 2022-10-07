@@ -68,7 +68,9 @@ func (i *Instance) Start(inctx context.Context) error {
 	// Start the configuration watcher.
 	// There is no need to add it to the wait group
 	// since it cleanly exits when context is done.
-	i.cw.Start(ctx)
+	if err = i.cw.Start(ctx); err != nil {
+		return fmt.Errorf("could not start configuration watcher: %v", err)
+	}
 
 	// Register producer function for received events at ingest.
 	i.ingest.RegisterCloudEventHandler(i.backend.Produce)

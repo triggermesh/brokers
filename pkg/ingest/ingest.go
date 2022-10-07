@@ -55,11 +55,14 @@ func (s *Instance) Start(ctx context.Context) error {
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.probeHandler(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
+			_, werr := w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
+			s.logger.Error("Could not write HTTP response (not healthy)", zap.Errors("error", []error{
+				werr, err}))
 			return
 		}
 
-		w.Write([]byte(`{"ok": "true"}`))
+		_, err = w.Write([]byte(`{"ok": "true"}`))
+		s.logger.Error("Could not write HTTP response (healthy)", zap.Error(err))
 	})
 
 	srv := &http.Server{
@@ -87,9 +90,7 @@ func (s *Instance) Start(ctx context.Context) error {
 	s.logger.Info("Exiting HTTP server")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	srv.Shutdown(ctx)
-
-	return nil
+	return srv.Shutdown(ctx)
 }
 
 func (s *Instance) UpdateFromConfig(c *config.Config) {
