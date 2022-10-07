@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -26,9 +27,12 @@ func New(args *MemoryArgs, logger *zap.Logger) backend.Interface {
 type memory struct {
 	args *MemoryArgs
 
+	ccbs map[string]backend.ConsumerDispatcher
+	// done    chan struct{}
 	closing bool
 	buffer  chan *cloudevents.Event
 	logger  *zap.Logger
+	m       sync.RWMutex
 }
 
 func (s *memory) Info() *backend.Info {
@@ -42,9 +46,10 @@ func (s *memory) Init(ctx context.Context) error {
 	return nil
 }
 
-func (s *memory) Disconnect() error {
-	return nil
-}
+// func (s *memory) Disconnect() error {
+// 	close(s.done)
+// 	return nil
+// }
 
 func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	if s.closing {
@@ -59,16 +64,32 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *memory) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
+func (s *memory) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.ccbs[name] = ccb
+
+	return nil
+}
+
+func (s *memory) Unsubscribe(name string) {
+	s.m.Lock()
+	defer s.m.Unlock()
+	delete(s.ccbs, name)
+}
+
+func (s *memory) Start(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		s.closing = true
 	}()
 
+	closing := false
+
 	for {
 		select {
 		case event := <-s.buffer:
-			ccb(event)
+			s.fanOut(event)
 		case <-ctx.Done():
 			// signal to reject new events being produced
 			s.closing = true
@@ -76,13 +97,23 @@ func (s *memory) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
 
 			// loop all remaining elements from the channel
 			for event := range s.buffer {
-				ccb(event)
+				s.fanOut(event)
 			}
+			closing = true
 		}
 
-		if s.closing {
+		if closing {
 			break
 		}
+	}
+	return nil
+}
+
+func (s *memory) fanOut(event *cloudevents.Event) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+	for _, ccb := range s.ccbs {
+		ccb(event)
 	}
 }
 

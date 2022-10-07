@@ -18,25 +18,36 @@ import (
 	"knative.dev/eventing/pkg/eventfilter/subscriptionsapi"
 	"knative.dev/pkg/logging"
 
+	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/config"
 )
 
 type CloudEventHandler func(context.Context, *cloudevents.Event) error
 
-type Manager struct {
-	logger    *zap.Logger
-	ceClient  cloudevents.Client
-	ceHandler CloudEventHandler
-
-	triggers []config.Trigger
-	ctx      context.Context
-	m        sync.RWMutex
+type Subscription struct {
+	Trigger config.Trigger
 }
 
-func New(logger *zap.Logger) (*Manager, error) {
+type Manager struct {
+	logger   *zap.SugaredLogger
+	ceClient cloudevents.Client
+
+	backend   backend.Interface
+	ceHandler CloudEventHandler
+
+	triggers    map[string]config.Trigger
+	subscribers map[string]*subscriber
+
+	// TODO subs map
+
+	ctx context.Context
+	m   sync.RWMutex
+}
+
+func New(logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
 	// Needed for Knative filters
 	ctx := context.Background()
-	ctx = logging.WithLogger(ctx, logger.Sugar())
+	ctx = logging.WithLogger(ctx, logger)
 
 	p, err := cloudevents.NewHTTP()
 	if err != nil {
@@ -49,9 +60,11 @@ func New(logger *zap.Logger) (*Manager, error) {
 	}
 
 	return &Manager{
-		logger:   logger,
-		ceClient: ceClient,
-		ctx:      ctx,
+		backend:     be,
+		subscribers: make(map[string]*subscriber),
+		logger:      logger,
+		ceClient:    ceClient,
+		ctx:         ctx,
 	}, nil
 }
 
@@ -59,12 +72,52 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	if reflect.DeepEqual(m.triggers, c.Triggers) {
-		return
+	// if reflect.DeepEqual(m.triggers, c.Triggers) {
+	// 	return
+	// }
+
+	for k, sub := range m.subscribers {
+		if _, ok := c.Triggers[k]; !ok {
+			sub.unsubscribe()
+			delete(m.subscribers, k)
+		}
 	}
 
-	m.logger.Info("Updating trigger configuration", zap.Any("triggers", c.Triggers))
-	m.triggers = c.Triggers
+	for name, trigger := range c.Triggers {
+		s, ok := m.subscribers[name]
+		if !ok {
+			// if not exists create subscription.
+			s = &subscriber{
+				name:      name,
+				backend:   m.backend,
+				ceClient:  m.ceClient,
+				parentCtx: m.ctx,
+				logger:    m.logger,
+			}
+
+			if err := s.updateTrigger(trigger); err != nil {
+				m.logger.Error("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
+				return
+			}
+
+			m.backend.Subscribe(name, s.dispatchCloudEvent)
+			m.subscribers[name] = s
+
+			continue
+		}
+
+		if reflect.DeepEqual(s.trigger, trigger) {
+			// no changes for this trigger.
+			continue
+		}
+
+		// if exists, update data
+		m.logger.Info("Updating trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
+		if err := s.updateTrigger(trigger); err != nil {
+			m.logger.Error("Could not setup trigger", zap.String("name", name), zap.Error(err))
+			return
+		}
+	}
 }
 
 func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
@@ -73,7 +126,7 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 	m.m.RLock()
 	defer m.m.RUnlock()
 
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 	for i := range m.triggers {
 		res := subscriptionsapi.NewAllFilter(materializeFiltersList(m.ctx, m.triggers[i].Filters)...).Filter(m.ctx, *event)
 		if res == eventfilter.FailFilter {
@@ -81,16 +134,18 @@ func (m *Manager) DispatchCloudEvent(event *cloudevents.Event) {
 			continue
 		}
 
-		for j := range m.triggers[i].Targets {
-			target := &m.triggers[i].Targets[j]
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				m.dispatchCloudEventToTarget(target, event)
-			}()
-		}
+		// for j := range m.triggers[i].Targets {
+		// 	target := &m.triggers[i].Targets[j]
+		// 	wg.Add(1)
+		// 	go func() {
+		// 		defer wg.Done()
+		// 		m.dispatchCloudEventToTarget(target, event)
+		// 	}()
+		// }
+		t := m.triggers[i].Target
+		m.dispatchCloudEventToTarget(&t, event)
 	}
-	wg.Wait()
+	// wg.Wait()
 }
 
 func (m *Manager) RegisterCloudEventHandler(h CloudEventHandler) {
