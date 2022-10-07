@@ -9,8 +9,10 @@ import (
 	"github.com/rickb777/date/period"
 	"go.uber.org/zap"
 
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/eventing/pkg/eventfilter"
 	"knative.dev/eventing/pkg/eventfilter/subscriptionsapi"
+	"knative.dev/pkg/logging"
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/config"
@@ -169,4 +171,64 @@ func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {
 		cloudevents.TargetFromContext(ctx).String()),
 		zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 	return false
+}
+
+func materializeFiltersList(ctx context.Context, filters []eventingv1.SubscriptionsAPIFilter) []eventfilter.Filter {
+	materializedFilters := make([]eventfilter.Filter, 0, len(filters))
+	for _, f := range filters {
+		f := materializeSubscriptionsAPIFilter(ctx, f)
+		if f == nil {
+			logging.FromContext(ctx).Warnw("Failed to parse filter. Skipping filter.", zap.Any("filter", f))
+			continue
+		}
+		materializedFilters = append(materializedFilters, f)
+	}
+	return materializedFilters
+}
+
+func materializeSubscriptionsAPIFilter(ctx context.Context, filter eventingv1.SubscriptionsAPIFilter) eventfilter.Filter {
+	var materializedFilter eventfilter.Filter
+	var err error
+	switch {
+	case len(filter.Exact) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		for attribute, value := range filter.Exact {
+			materializedFilter, err = subscriptionsapi.NewExactFilter(attribute, value)
+			if err != nil {
+				logging.FromContext(ctx).Debugw("Invalid exact expression", zap.String("attribute", attribute), zap.String("value", value), zap.Error(err))
+				return nil
+			}
+		}
+	case len(filter.Prefix) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		for attribute, prefix := range filter.Prefix {
+			materializedFilter, err = subscriptionsapi.NewPrefixFilter(attribute, prefix)
+			if err != nil {
+				logging.FromContext(ctx).Debugw("Invalid prefix expression", zap.String("attribute", attribute), zap.String("prefix", prefix), zap.Error(err))
+				return nil
+			}
+		}
+	case len(filter.Suffix) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		for attribute, suffix := range filter.Suffix {
+			materializedFilter, err = subscriptionsapi.NewSuffixFilter(attribute, suffix)
+			if err != nil {
+				logging.FromContext(ctx).Debugw("Invalid suffix expression", zap.String("attribute", attribute), zap.String("suffix", suffix), zap.Error(err))
+				return nil
+			}
+		}
+	case len(filter.All) > 0:
+		materializedFilter = subscriptionsapi.NewAllFilter(materializeFiltersList(ctx, filter.All)...)
+	case len(filter.Any) > 0:
+		materializedFilter = subscriptionsapi.NewAnyFilter(materializeFiltersList(ctx, filter.Any)...)
+	case filter.Not != nil:
+		materializedFilter = subscriptionsapi.NewNotFilter(materializeSubscriptionsAPIFilter(ctx, *filter.Not))
+	case filter.CESQL != "":
+		if materializedFilter, err = subscriptionsapi.NewCESQLFilter(filter.CESQL); err != nil {
+			// This is weird, CESQL expression should be validated when Trigger's are created.
+			logging.FromContext(ctx).Debugw("Found an Invalid CE SQL expression", zap.String("expression", filter.CESQL))
+			return nil
+		}
+	}
+	return materializedFilter
 }

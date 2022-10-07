@@ -59,10 +59,6 @@ func (i *Instance) Start(inctx context.Context) error {
 		return i.backend.Start(ctx)
 	})
 
-	// // Disconnect from backend after subscription manager and
-	// // ingest server are done.
-	// defer i.backend.Disconnect()
-
 	// ConfigWatcher will callback reconfigurations for:
 	// - Ingest: if authentication parameters are updated.
 	// - Subscription manager: if triggers configurations changes.
@@ -76,9 +72,6 @@ func (i *Instance) Start(inctx context.Context) error {
 
 	// Register producer function for received events at ingest.
 	i.ingest.RegisterCloudEventHandler(i.backend.Produce)
-
-	// Register producer function for ingesting replies.
-	i.subscription.RegisterCloudEventHandler(i.backend.Produce)
 
 	// TODO register probes at ingest
 
