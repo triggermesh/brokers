@@ -86,12 +86,15 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 			m.logger.Info("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 			if err := s.updateTrigger(trigger); err != nil {
 				m.logger.Error("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
-				return
+				continue
 			}
 
-			m.backend.Subscribe(name, s.dispatchCloudEvent)
-			m.subscribers[name] = s
+			if err := m.backend.Subscribe(name, s.dispatchCloudEvent); err != nil {
+				m.logger.Error("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
+				continue
+			}
 
+			m.subscribers[name] = s
 			continue
 		}
 

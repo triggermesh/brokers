@@ -18,7 +18,6 @@ type FakeCachedFileWatcher interface {
 
 type watchedItem struct {
 	content []byte
-	cb      fs.CachedWatchCallback
 }
 
 type fakeCachedFileWatcher struct {
