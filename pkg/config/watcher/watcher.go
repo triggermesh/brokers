@@ -18,13 +18,13 @@ type WatcherCallback func(*config.Config)
 type Watcher struct {
 	cfw    fs.CachedFileWatcher
 	path   string
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 
 	config *config.Config
 	cbs    []WatcherCallback
 }
 
-func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.Logger) *Watcher {
+func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) *Watcher {
 	return &Watcher{
 		cfw:    cfw,
 		path:   path,

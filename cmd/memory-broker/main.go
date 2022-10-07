@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	g.SetLogger(zl)
+	g.SetLogger(zl.Sugar())
 	g.SetContext(context.Background())
 
 	cli := Gateway{

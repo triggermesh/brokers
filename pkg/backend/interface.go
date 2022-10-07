@@ -21,7 +21,28 @@ type Info struct {
 // the event processed and will make sure it is not re-delivered.
 type ConsumerDispatcher func(event *cloudevents.Event)
 
+type EventProducer interface {
+	// Ingest a new CloudEvents at the backend.
+	Produce(context.Context, *cloudevents.Event) error
+}
+
+type Subscribable interface {
+	// Subscribe is a method that sets up a reader that will retrieve
+	// events from the backend and pass them to the consumer dispatcher.
+	// When the consumer dispatcher returns, the message is marked as
+	// processed and won't be delivered anymore.
+	Subscribe(name string, ccb ConsumerDispatcher) error
+
+	// Unsubscribe is a method that removes a subscription referencing
+	// it by name, returning when all pending (already read) messages
+	// have been dispatched.
+	Unsubscribe(name string)
+}
+
 type Interface interface {
+	EventProducer
+	Subscribable
+
 	// Info returns information about the backend implementation.
 	Info() *Info
 
@@ -31,19 +52,14 @@ type Interface interface {
 	// or migrations.
 	Init(ctx context.Context) error
 
-	// Produce new CloudEvents to the backend.
-	Produce(context.Context, *cloudevents.Event) error
-
 	// Start is a blocking method that read events from the backend
-	// and pass them to the consumer dispatcher. When the consumer
+	// and pass them to the subscriber's consumer dispatcher. When the consumer
 	// dispatcher returns, the message is marked as processed and
 	// won't be delivered anymore.
-	Start(context.Context, ConsumerDispatcher)
+	// When the context is done all subscribers are finished and the
+	// method exists.
+	Start(ctx context.Context) error
 
 	// Probe checks the overall status of the backend implementation.
 	Probe(context.Context) error
-
-	// Disconnect is a blocking method that makes sure that on the fly
-	// tasks are finished and the backend is left in a clean state.
-	Disconnect() error
 }

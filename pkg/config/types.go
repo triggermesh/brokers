@@ -80,10 +80,16 @@ func (i *Target) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
+// type Trigger struct {
+// 	Name    string                              `json:"name"`
+// 	Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
+// 	Targets []Target                            `json:"targets"`
+// }
+
 type Trigger struct {
-	Name    string                              `json:"name"`
+	// Name    string                              `json:"name"`
 	Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
-	Targets []Target                            `json:"targets"`
+	Target  Target                              `json:"target"`
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
@@ -92,16 +98,17 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	if t == nil {
 		return nil
 	}
-	for i, trg := range t.Targets {
-		errs = errs.Also(trg.Validate(ctx)).ViaFieldIndex("targets", i)
-	}
+	// for i, trg := range t.Targets {
+	// 	errs = errs.Also(trg.Validate(ctx)).ViaFieldIndex("targets", i)
+	// }
+	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
 
 	return errs.Also(eventingv1.ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
 }
 
 type Config struct {
-	Ingest   *Ingest   `json:"ingest,omitempty"`
-	Triggers []Trigger `json:"triggers"`
+	Ingest   *Ingest            `json:"ingest,omitempty"`
+	Triggers map[string]Trigger `json:"triggers"`
 }
 
 func (c *Config) Validate(ctx context.Context) *apis.FieldError {
@@ -111,8 +118,8 @@ func (c *Config) Validate(ctx context.Context) *apis.FieldError {
 
 	errs := c.Ingest.Validate(ctx).ViaField("ingest")
 
-	for i, t := range c.Triggers {
-		errs = errs.Also(t.Validate(ctx).ViaFieldIndex("triggers", i))
+	for k, t := range c.Triggers {
+		errs = errs.Also(t.Validate(ctx).ViaFieldKey("triggers", k))
 	}
 
 	return errs

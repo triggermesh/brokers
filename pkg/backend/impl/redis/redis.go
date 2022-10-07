@@ -5,8 +5,10 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -23,12 +25,20 @@ const (
 
 	// Redis key at the message that contains the CloudEvent.
 	ceKey = "ce"
+
+	// Disconnect timeout
+	disconnectTimeout = time.Second * 20
+
+	// Unsubscribe timeout
+	unsubscribeTimeout = time.Second * 10
 )
 
-func New(args *RedisArgs, logger *zap.Logger) backend.Interface {
+func New(args *RedisArgs, logger *zap.SugaredLogger) backend.Interface {
 	return &redis{
-		args:   args,
-		logger: logger,
+		args:          args,
+		logger:        logger,
+		disconnecting: false,
+		subs:          make(map[string]subscription),
 	}
 }
 
@@ -36,7 +46,20 @@ type redis struct {
 	args *RedisArgs
 
 	client *goredis.Client
-	logger *zap.Logger
+
+	// subscription list indexed by the name.
+	subs map[string]subscription
+	// Waitgroup that should be used to wait for subscribers
+	// before disconnecting
+	wgSubs sync.WaitGroup
+
+	// disconnecting is set to avoid setting up new subscriptions
+	// when the ...
+	disconnecting bool
+
+	ctx    context.Context
+	logger *zap.SugaredLogger
+	mutex  sync.Mutex
 }
 
 func (s *redis) Info() *backend.Info {
@@ -52,21 +75,39 @@ func (s *redis) Init(ctx context.Context) error {
 		DB:       s.args.Database,
 	})
 
-	// Create the consumer group
-	res := s.client.XGroupCreateMkStream(ctx, s.args.Stream, s.args.Group, groupStartID)
-	_, err := res.Result()
-	if err != nil {
-		// Ignore errors when the group already exists.
-		if !strings.HasPrefix(err.Error(), "BUSYGROUP") {
-			return err
-		}
-		s.logger.Debug("Consumer group already exists")
-	}
-
 	return nil
 }
 
-func (s *redis) Disconnect() error {
+func (s *redis) Start(ctx context.Context) error {
+	s.ctx = ctx
+	<-ctx.Done()
+
+	// This prevents new subscriptions from being setup
+	s.disconnecting = true
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for name := range s.subs {
+		s.unsubscribe(name)
+	}
+
+	// wait for all subscriptions to finish
+	// before returning.
+	allSubsFinished := make(chan struct{})
+	go func() {
+		defer close(allSubsFinished)
+		s.wgSubs.Wait()
+	}()
+
+	select {
+	case <-allSubsFinished:
+		// Clean exit.
+	case <-time.After(disconnectTimeout):
+		// Timed out, some events have not been delivered.
+		s.logger.Error(fmt.Sprintf("Disconnection from Redis timed out after %d", disconnectTimeout))
+	}
+
 	return s.client.Close()
 }
 
@@ -94,104 +135,93 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *redis) Start(ctx context.Context, ccb backend.ConsumerDispatcher) {
-	// Start reading all pending messages
-	id := "0"
+func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	// Manage context termination
-	exitLoop := false
-
-	go func() {
-		<-ctx.Done()
-		exitLoop = true
-	}()
-
-	for {
-		// If context is done exit the loop
-		if exitLoop {
-			break
-		}
-
-		streams, err := s.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
-			Group:    s.args.Group,
-			Consumer: s.args.Instance,
-			Streams:  []string{s.args.Stream, id},
-			Count:    1,
-			Block:    time.Hour,
-			NoAck:    false,
-		}).Result()
-
-		if err != nil {
-			// Ignore errors when the blocking period ends without
-			// receiving any event, and errors when the context is
-			// canceled
-			if !strings.HasSuffix(err.Error(), "i/o timeout") &&
-				err.Error() != "context canceled" {
-				s.logger.Error("could not read CloudEvent from consumer group", zap.Error(err))
-			}
-			continue
-		}
-
-		if len(streams) != 1 {
-			s.logger.Error("unexpected number of streams read", zap.Any("streams", streams))
-			continue
-		}
-
-		// If we are processing pending messages from Redis and we reach
-		// EOF, switch to reading new messages.
-		if len(streams[0].Messages) == 0 && id != ">" {
-			id = ">"
-		}
-
-		for _, msg := range streams[0].Messages {
-			ce := &cloudevents.Event{}
-			for k, v := range msg.Values {
-				if k != ceKey {
-					s.logger.Debug(fmt.Sprintf("Ignoring non expected key at message from backend: %s", k))
-					continue
-				}
-
-				if err = ce.UnmarshalJSON([]byte(v.(string))); err != nil {
-					s.logger.Error("Could not unmarshal CloudEvent from Redis", zap.Error(err))
-					continue
-				}
-			}
-
-			// If there was no valid CE in the message ACK so that we do not receive it again.
-			if ce.ID() == "" {
-				s.logger.Warn(fmt.Sprintf("Removing non valid message from backend: %s", msg.ID))
-				s.ack(ctx, msg.ID)
-				continue
-			}
-
-			ce.Context.SetExtension("tmbackendid", msg.ID)
-
-			go func() {
-				ccb(ce)
-				id := ce.Extensions()["tmbackendid"].(string)
-
-				if err := s.ack(ctx, id); err != nil {
-					s.logger.Error(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", id, ce.Context.GetID()),
-						zap.Error(err))
-				}
-			}()
-
-			// If we are processing pending messages the ACK might take a
-			// while to be sent. We need to set the message ID so that the
-			// next requested element is not any of the pending being processed.
-			if id != ">" {
-				id = msg.ID
-			}
-		}
-
+	// avoid subscriptions if disconnection is going on
+	if s.disconnecting {
+		return errors.New("cannot create new subscriptions while disconnecting")
 	}
-	s.logger.Info("Exiting Redis reader")
+
+	if _, ok := s.subs[name]; ok {
+		return fmt.Errorf("subscription for %q alredy exists", name)
+	}
+
+	// Create the consumer group for this subscription.
+	group := s.args.Group + "." + name
+	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, groupStartID)
+	_, err := res.Result()
+	if err != nil {
+		// Ignore errors when the group already exists.
+		if !strings.HasPrefix(err.Error(), "BUSYGROUP") {
+			return err
+		}
+		s.logger.Debug("Consumer group already exists", zap.String("group", group))
+	}
+
+	// We don't use the parent context but create a new one so that we can control
+	// how subscriptions are finished by calling cancel at our will, either when the
+	// global context is called, or when unsubscribing.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	subs := subscription{
+		instance: s.args.Instance,
+		stream:   s.args.Stream,
+		name:     name,
+		group:    group,
+
+		// caller's callback for dispatching events from Redis.
+		ccbDispatch: ccb,
+
+		// cancel function let us control when we want to exit the subscription loop.
+		ctx:    ctx,
+		cancel: cancel,
+		// stoppedCh signals when a subscription has completely finished.
+		stoppedCh: make(chan struct{}),
+
+		client: s.client,
+		logger: s.logger,
+	}
+
+	s.subs[name] = subs
+	s.wgSubs.Add(1)
+	subs.start()
+
+	return nil
 }
 
-func (s *redis) ack(ctx context.Context, id string) error {
-	res := s.client.XAck(ctx, s.args.Stream, s.args.Group, id)
-	_, err := res.Result()
-	return err
+func (s *redis) Unsubscribe(name string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.unsubscribe(name)
+}
+
+// unsubscribe is not thread safe, caller should acquire
+// the object's lock.
+func (s *redis) unsubscribe(name string) {
+	sub, ok := s.subs[name]
+	if !ok {
+		s.logger.Info("Unsubscribe action was not needed since the subscription did not exist",
+			zap.String("name", name))
+		return
+	}
+
+	// Finish the subscription's context.
+	sub.cancel()
+
+	// Wait for the subscription to finish
+	select {
+	case <-sub.stoppedCh:
+		// Clean exit.
+	case <-time.After(unsubscribeTimeout):
+		// Timed out, some events have not been delivered.
+		s.logger.Error(fmt.Sprintf("Unsubscribing from Redis timed out after %d", unsubscribeTimeout),
+			zap.String("name", name))
+	}
+
+	delete(s.subs, name)
+	s.wgSubs.Done()
 }
 
 func (s *redis) Probe(ctx context.Context) error {

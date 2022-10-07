@@ -25,10 +25,10 @@ type Instance struct {
 	subscription *subscriptions.Manager
 	cw           *cfgwatcher.Watcher
 
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
-func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *cfgwatcher.Watcher, logger *zap.Logger) *Instance {
+func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *cfgwatcher.Watcher, logger *zap.SugaredLogger) *Instance {
 	return &Instance{
 		backend:      backend,
 		ingest:       ingest,
@@ -56,18 +56,24 @@ func (i *Instance) Start(inctx context.Context) error {
 	// implementation and send them to the subscription manager dispatcher.
 	// When the dispatcher returns the message is marked as processed.
 	grp.Go(func() error {
-		i.backend.Start(ctx, i.subscription.DispatchCloudEvent)
-		return nil
+		return i.backend.Start(ctx)
 	})
 
-	// Disconnect from backend after subscription manager and
-	// ingest server are done.
-	defer i.backend.Disconnect()
+	// ConfigWatcher will callback reconfigurations for:
+	// - Ingest: if authentication parameters are updated.
+	// - Subscription manager: if triggers configurations changes.
+	i.cw.AddCallback(i.ingest.UpdateFromConfig)
+	i.cw.AddCallback(i.subscription.UpdateFromConfig)
 
 	// Start the configuration watcher.
 	// There is no need to add it to the wait group
 	// since it cleanly exits when context is done.
 	i.cw.Start(ctx)
+
+	// Register producer function for received events at ingest.
+	i.ingest.RegisterCloudEventHandler(i.backend.Produce)
+
+	// TODO register probes at ingest
 
 	// Start the server that ingests CloudEvents.
 	grp.Go(func() error {

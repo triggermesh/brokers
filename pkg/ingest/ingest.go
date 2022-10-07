@@ -24,10 +24,10 @@ type Instance struct {
 	ceHandler    CloudEventHandler
 	probeHandler ProbeHandler
 
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
-func NewInstance(logger *zap.Logger) *Instance {
+func NewInstance(logger *zap.SugaredLogger) *Instance {
 	return &Instance{
 		logger: logger,
 	}

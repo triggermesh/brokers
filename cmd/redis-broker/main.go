@@ -23,12 +23,13 @@ func main() {
 	g := cmd.Globals{}
 
 	// TODO configure logger
-	zl, err := zap.NewProduction()
+	// zl, err := zap.NewProduction()
+	zl, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 
-	g.SetLogger(zl)
+	g.SetLogger(zl.Sugar())
 	g.SetContext(context.Background())
 
 	cli := Gateway{
