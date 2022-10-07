@@ -9,24 +9,24 @@ Durations follow [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format
 
 ```yaml
 triggers:
-- name: trigger1
-  filters:
-  - exact:
-      type: example.type
-  targets:
-  - url: http://localhost:8888
-    deliveryOptions:
-      retry: 2
-      backoffDelay: PT2S
-      backoffPolicy: linear
-- name: trigger2
-  targets:
-  - url: http://localhost:9999
-    deliveryOptions:
-      retry: 5
-      backoffDelay: PT5S
-      backoffPolicy: constant
-      deadLetterURL: http://localhost:9090
+  trigger1:
+    filters:
+    - exact:
+        type: example.type
+    target:
+      url: http://localhost:8888
+      deliveryOptions:
+        retry: 2
+        backoffDelay: PT2S
+        backoffPolicy: linear
+  trigger2:
+    target:
+      url: http://localhost:9999
+      deliveryOptions:
+        retry: 5
+        backoffDelay: PT5S
+        backoffPolicy: constant
+        deadLetterURL: http://localhost:9090
 ```
 
 ## Usage
