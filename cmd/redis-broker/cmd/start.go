@@ -26,7 +26,7 @@ func (c *StartCmd) Run(globals *Globals) error {
 	b := redis.New(&c.Redis, globals.logger.Named("redis"))
 
 	// Create the subscription manager.
-	sm, err := subscriptions.New(globals.logger.Named("subs").Sugar(), b)
+	sm, err := subscriptions.New(globals.logger.Named("subs"), b)
 	if err != nil {
 		return err
 	}

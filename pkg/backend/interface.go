@@ -34,7 +34,8 @@ type Subscribable interface {
 	Subscribe(name string, ccb ConsumerDispatcher) error
 
 	// Unsubscribe is a method that removes a subscription referencing
-	// it by name.
+	// it by name, returning when all pending (already read) messages
+	// have been dispatched.
 	Unsubscribe(name string)
 }
 

@@ -29,12 +29,12 @@ type fileWatcher struct {
 
 	m      sync.RWMutex
 	start  sync.Once
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
 // NewWatcher creates a new FileWatcher object that register files
 // and calls back when they change.
-func NewWatcher(logger *zap.Logger) (FileWatcher, error) {
+func NewWatcher(logger *zap.SugaredLogger) (FileWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err

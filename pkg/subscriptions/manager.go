@@ -18,8 +18,6 @@ import (
 	"github.com/triggermesh/brokers/pkg/config"
 )
 
-type CloudEventHandler func(context.Context, *cloudevents.Event) error
-
 type Subscription struct {
 	Trigger config.Trigger
 }
@@ -30,9 +28,8 @@ type Manager struct {
 
 	backend backend.Interface
 
+	// Subscribers map indexed by name
 	subscribers map[string]*subscriber
-
-	// TODO subs map
 
 	ctx context.Context
 	m   sync.RWMutex
@@ -66,17 +63,18 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	for k, sub := range m.subscribers {
-		if _, ok := c.Triggers[k]; !ok {
+	for name, sub := range m.subscribers {
+		if _, ok := c.Triggers[name]; !ok {
+			m.logger.Info("Deleting subscription", zap.String("name", name))
 			sub.unsubscribe()
-			delete(m.subscribers, k)
+			delete(m.subscribers, name)
 		}
 	}
 
 	for name, trigger := range c.Triggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			// if not exists create subscription.
+			// If there is no subscription by that name, create one.
 			s = &subscriber{
 				name:      name,
 				backend:   m.backend,
@@ -85,6 +83,7 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 				logger:    m.logger,
 			}
 
+			m.logger.Info("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 			if err := s.updateTrigger(trigger); err != nil {
 				m.logger.Error("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
 				return
@@ -97,12 +96,12 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 		}
 
 		if reflect.DeepEqual(s.trigger, trigger) {
-			// no changes for this trigger.
+			// If there are no changes to the subscription, skip.
 			continue
 		}
 
-		// if exists, update data
-		m.logger.Info("Updating trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
+		// Update existing subscription with new data.
+		m.logger.Info("Updating subscription upon trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 		if err := s.updateTrigger(trigger); err != nil {
 			m.logger.Error("Could not setup trigger", zap.String("name", name), zap.Error(err))
 			return

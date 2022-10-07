@@ -11,10 +11,10 @@ import (
 
 type Globals struct {
 	context context.Context
-	logger  *zap.Logger
+	logger  *zap.SugaredLogger
 }
 
-func (g *Globals) SetLogger(logger *zap.Logger) {
+func (g *Globals) SetLogger(logger *zap.SugaredLogger) {
 	g.logger = logger
 }
 

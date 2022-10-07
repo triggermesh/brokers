@@ -16,7 +16,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/backend"
 )
 
-func New(args *MemoryArgs, logger *zap.Logger) backend.Interface {
+func New(args *MemoryArgs, logger *zap.SugaredLogger) backend.Interface {
 	return &memory{
 		closing: false,
 		args:    args,
@@ -31,7 +31,7 @@ type memory struct {
 	// done    chan struct{}
 	closing bool
 	buffer  chan *cloudevents.Event
-	logger  *zap.Logger
+	logger  *zap.SugaredLogger
 	m       sync.RWMutex
 }
 

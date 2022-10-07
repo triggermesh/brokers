@@ -25,10 +25,10 @@ type Instance struct {
 	subscription *subscriptions.Manager
 	cw           *cfgwatcher.Watcher
 
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
-func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *cfgwatcher.Watcher, logger *zap.Logger) *Instance {
+func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscription *subscriptions.Manager, cw *cfgwatcher.Watcher, logger *zap.SugaredLogger) *Instance {
 	return &Instance{
 		backend:      backend,
 		ingest:       ingest,

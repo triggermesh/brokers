@@ -33,7 +33,7 @@ const (
 	unsubscribeTimeout = time.Second * 10
 )
 
-func New(args *RedisArgs, logger *zap.Logger) backend.Interface {
+func New(args *RedisArgs, logger *zap.SugaredLogger) backend.Interface {
 	return &redis{
 		args:          args,
 		logger:        logger,
@@ -58,7 +58,7 @@ type redis struct {
 	disconnecting bool
 
 	ctx    context.Context
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 	mutex  sync.Mutex
 }
 
@@ -181,7 +181,7 @@ func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 		stoppedCh: make(chan struct{}),
 
 		client: s.client,
-		logger: s.logger.Sugar(),
+		logger: s.logger,
 	}
 
 	s.subs[name] = subs

@@ -28,12 +28,12 @@ type cachedFileWatcher struct {
 	watchedFiles map[string][]byte
 
 	m      sync.RWMutex
-	logger *zap.Logger
+	logger *zap.SugaredLogger
 }
 
 // NewCachedFileWatcher creates a new FileWatcher object that register files
 // and calls back when they change.
-func NewCachedFileWatcher(logger *zap.Logger) (CachedFileWatcher, error) {
+func NewCachedFileWatcher(logger *zap.SugaredLogger) (CachedFileWatcher, error) {
 	cw, err := NewWatcher(logger)
 	if err != nil {
 		return nil, err

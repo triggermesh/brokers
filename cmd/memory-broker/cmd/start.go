@@ -25,7 +25,7 @@ func (c *StartCmd) Run(globals *Globals) error {
 	b := memory.New(&c.Memory, globals.logger.Named("memory"))
 
 	// Create the subscription manager.
-	sm, err := subscriptions.New(globals.logger.Named("subs").Sugar(), b)
+	sm, err := subscriptions.New(globals.logger.Named("subs"), b)
 	if err != nil {
 		return err
 	}

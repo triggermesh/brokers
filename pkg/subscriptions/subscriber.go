@@ -37,31 +37,6 @@ type subscriber struct {
 	m      sync.RWMutex
 }
 
-// func newSubscriber(ctx context.Context, name string, backend backend.Interface, ceClient cloudevents.Client, trigger config.Trigger, logger *zap.SugaredLogger) *subscriber {
-// 	// s := &subscriber{
-// 	// 	backend:  backend,
-// 	// 	ceClient: ceClient,
-// 	// 	logger:   logger,
-// 	// }
-
-// 	s := &subscriber{
-// 		name:      name,
-// 		backend:   backend,
-// 		ceClient:  ceClient,
-// 		parentCtx: ctx,
-// 		logger:    logger,
-// 	}
-
-// 	if err := s.updateTrigger(trigger); err != nil {
-// 		m.logger.Error("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
-// 		return
-// 	}
-
-// 	backend.Subscribe(name, s.dispatchCloudEvent)
-
-// 	return s
-// }
-
 func (s *subscriber) unsubscribe() {
 	s.backend.Unsubscribe(s.name)
 }
