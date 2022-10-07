@@ -29,15 +29,9 @@ func (c *StartCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	// Register producer function for ingesting replies.
-	sm.RegisterCloudEventHandler(b.Produce)
 
-	// Create ingest server. Register the CloudEvents
-	// handler to send received CE to the backend.
+	// Create ingest server.
 	i := ingest.NewInstance(globals.logger.Named("ingest"))
-	i.RegisterCloudEventHandler(b.Produce)
-
-	// TODO register probes
 
 	// The ConfigWatcher will read the configfile and call registered
 	// callbacks upon start and everytime the configuration file
@@ -47,12 +41,6 @@ func (c *StartCmd) Run(globals *Globals) error {
 		return err
 	}
 	cfgw := cfgwatcher.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
-
-	// ConfigWatcher will callback reconfigurations for:
-	// - Ingest: if authentication parameters are updated.
-	// - Subscription manager: if triggers configurations changes.
-	cfgw.AddCallback(i.UpdateFromConfig)
-	cfgw.AddCallback(sm.UpdateFromConfig)
 
 	// Create broker to start all runtimer elements
 	// an manage signaling

@@ -18,6 +18,7 @@ import (
 
 func New(args *MemoryArgs, logger *zap.SugaredLogger) backend.Interface {
 	return &memory{
+		ccbs:    make(map[string]backend.ConsumerDispatcher),
 		closing: false,
 		args:    args,
 		logger:  logger,
@@ -27,8 +28,7 @@ func New(args *MemoryArgs, logger *zap.SugaredLogger) backend.Interface {
 type memory struct {
 	args *MemoryArgs
 
-	ccbs map[string]backend.ConsumerDispatcher
-	// done    chan struct{}
+	ccbs    map[string]backend.ConsumerDispatcher
 	closing bool
 	buffer  chan *cloudevents.Event
 	logger  *zap.SugaredLogger
@@ -45,11 +45,6 @@ func (s *memory) Init(ctx context.Context) error {
 	s.buffer = make(chan *cloudevents.Event, s.args.BufferSize)
 	return nil
 }
-
-// func (s *memory) Disconnect() error {
-// 	close(s.done)
-// 	return nil
-// }
 
 func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	if s.closing {
