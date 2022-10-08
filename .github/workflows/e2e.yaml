@@ -19,17 +19,22 @@ jobs:
       with:
         go-version: 1.19.x
 
+    # - name: Start Redis container
+    #   run: |
+    #     docker run -d -v $PWD/.local/data:/data \
+    #       -e REDIS_ARGS="--appendonly yes" \
+    #       --name redis-stack-server \
+    #       -p 6379:6379 \
+    #       redis/redis-stack-server:latest
+
+    # - name: List files in the repository
+    #   run: |
+    #     ls -la ${{ github.workspace }}
+
     - name: Start Redis container
       run: |
-        docker run -d -v $PWD/.local/data:/data \
-          -e REDIS_ARGS="--appendonly yes" \
-          --name redis-stack-server \
-          -p 6379:6379 \
-          redis/redis-stack-server:latest
+        bash "${GITHUB_WORKSPACE}/tests/e2e/start-redis-container.sh"
 
-    - name: List files in the repository
-      run: |
-        ls -la ${{ github.workspace }}
 
     - name: Copy first broker config
       run: |
