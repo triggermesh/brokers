@@ -39,4 +39,4 @@ jobs:
       run: |
         go run ./cmd/redis-broker start \
           --redis.address "0.0.0.0:6379" \
-          --config-path ".local/data/config.yaml"
+          --config-path "/tests/temp/data/config.yaml"
