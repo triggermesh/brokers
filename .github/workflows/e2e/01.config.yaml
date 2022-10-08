@@ -1,0 +1,11 @@
+triggers:
+  trigger1:
+    filters:
+    - exact:
+        type: example.type
+    target:
+      url: http://localhost:9090
+      deliveryOptions:
+        retry: 2
+        backoffDelay: PT5S
+        backoffPolicy: linear

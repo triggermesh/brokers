@@ -1,4 +1,4 @@
-name: "CodeQL Scanning"
+name: e2e
 
 on:
   push:
@@ -18,6 +18,21 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: 1.19.x
-    - name: Test
+
+    - name: Start Redis container
       run: |
-        docker ps
+        docker run -d -v $PWD/.local/data:/data \
+          -e REDIS_ARGS="--appendonly yes" \
+          --name redis-stack-server \
+          -p 6379:6379 \
+          redis/redis-stack-server:latest
+
+    - name: Copy first broker config
+      run: |
+        bash "${GITHUB_WORKSPACE}/apply-config.sh"
+
+    - name: Start broker from code
+      run: |
+        go run ./cmd/redis-broker start \
+          --redis.address "0.0.0.0:6379" \
+          --config-path "./config.yaml"
