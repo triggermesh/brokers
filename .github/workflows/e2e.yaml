@@ -27,6 +27,10 @@ jobs:
           -p 6379:6379 \
           redis/redis-stack-server:latest
 
+    - name: List files in the repository
+      run: |
+        ls -la ${{ github.workspace }}
+
     - name: Copy first broker config
       run: |
         bash "${GITHUB_WORKSPACE}/e2e/apply-config.sh"
