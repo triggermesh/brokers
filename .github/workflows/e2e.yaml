@@ -33,10 +33,10 @@ jobs:
 
     - name: Copy first broker config
       run: |
-        bash "${GITHUB_WORKSPACE}/e2e/apply-config.sh"
+        bash "${GITHUB_WORKSPACE}/tests/e2e/apply-config.sh"
 
     - name: Start broker from code
       run: |
         go run ./cmd/redis-broker start \
           --redis.address "0.0.0.0:6379" \
-          --config-path "./config.yaml"
+          --config-path ".local/data/config.yaml"
