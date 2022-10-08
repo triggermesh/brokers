@@ -2,4 +2,6 @@
 
 mkdir -p .local/data
 
-cp ./01.config.yaml .local/data/config.yaml
+ls -la
+
+cp ./tests/e2e/01.config.yaml .local/data/config.yaml
