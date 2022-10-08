@@ -29,7 +29,7 @@ jobs:
 
     - name: Copy first broker config
       run: |
-        bash "${GITHUB_WORKSPACE}/apply-config.sh"
+        bash "${GITHUB_WORKSPACE}/e2e/apply-config.sh"
 
     - name: Start broker from code
       run: |
