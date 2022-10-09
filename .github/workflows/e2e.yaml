@@ -44,6 +44,7 @@ jobs:
 
     - name: Start broker from code
       run: |
+        sleep 5;
         go run ./cmd/redis-broker start \
           --redis.address "localhost:${{ job.services.redis.ports[6379] }}" \
           --config-path "${GITHUB_WORKSPACE}/.local/config.yaml"
