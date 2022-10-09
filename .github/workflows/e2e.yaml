@@ -17,8 +17,7 @@ jobs:
         image: redis/redis-stack-server:latest
         env:
           REDIS_ARGS: "--appendonly yes"
-        ports:
-        - 6379:6379
+
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -44,5 +43,5 @@ jobs:
     - name: Start broker from code
       run: |
         go run ./cmd/redis-broker start \
-          --redis.address "redis:6379" \
+          --redis.address redis:6379 \
           --config-path "${GITHUB_WORKSPACE}/.local/config.yaml"
