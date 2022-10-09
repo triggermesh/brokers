@@ -15,6 +15,8 @@ jobs:
     services:
       redis:
         image: redis/redis-stack-server:latest
+        ports:
+        - 6379:6379
         env:
           REDIS_ARGS: "--appendonly yes"
 
@@ -43,5 +45,5 @@ jobs:
     - name: Start broker from code
       run: |
         go run ./cmd/redis-broker start \
-          --redis.address redis:6379 \
+          --redis.address "redis:${{ job.services.redis.ports[6379] }}" \
           --config-path "${GITHUB_WORKSPACE}/.local/config.yaml"
