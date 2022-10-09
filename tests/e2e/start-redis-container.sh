@@ -8,10 +8,10 @@ docker run -d -v $PWD/.local/data:/data \
     -p 6379:6379 \
     redis/redis-stack-server:latest
 
-for i in {1..50}
+for i in {1..15}
 do
   echo "$i try to connect to Redis."
-  res=`(printf "PING\r\n"); sleep 1 | nc localhost 6379 -w1`
+  res=`(printf "PING\r\n"); sleep 1 | nc 0.0.0.0 6379 -w1`
   if [[ $res == +PONG* ]]; then
     echo "Redis OK."
     exit 0
