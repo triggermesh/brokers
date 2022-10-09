@@ -11,8 +11,7 @@ docker run -d -v $PWD/.local/data:/data \
 for i in {1..5}
 do
   echo "$i try to connect to Redis."
-  res=`(printf "PING\r\n") | nc localhost 6379 -w1`
-  echo "xx $res xx"
+  res=`(printf "PING\r\n"); sleep 1 | nc localhost 6379 -w1`
   if [[ $res == +PONG* ]]; then
     echo "Redis OK."
     exit 0
