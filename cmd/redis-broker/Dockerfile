@@ -10,8 +10,6 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY pkg/ pkg/
 
-COPY config/empty.conf /etc/triggermesh/broker.conf
-
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o redis-broker ./cmd/redis-broker/main.go
 
