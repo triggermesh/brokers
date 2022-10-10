@@ -1,4 +1,4 @@
-name: Container Image
+name: Container image
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
 
   container_image:
-    name: Create container image and push to registry
+    name: Container images for brokers
     runs-on: ubuntu-latest
 
     steps:
