@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -49,9 +50,19 @@ func NewWatcher(logger *zap.SugaredLogger) (FileWatcher, error) {
 
 // Add path/callback tuple to the  FileWatcher.
 func (cw *fileWatcher) Add(path string, cb WatchCallback) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+	}
+
+	if absPath != path {
+		return fmt.Errorf("configuration path %q needs to be abstolute", path)
+	}
+
 	cw.m.Lock()
 	defer cw.m.Unlock()
 
+	cw.logger.Infow("Adding file to watch", zap.String("file", path))
 	if _, ok := cw.watchedFiles[path]; !ok {
 		if err := cw.watcher.Add(path); err != nil {
 			return err
@@ -92,7 +103,7 @@ func (cw *fileWatcher) Start(ctx context.Context) {
 					cw.m.RLock()
 					cbs, ok := cw.watchedFiles[e.Name]
 					if !ok {
-						cw.logger.Warn("Received a notification for a non watched file")
+						cw.logger.Warnw("Received a notification for a non watched file", zap.String("file", e.Name))
 					}
 
 					for _, cb := range cbs {
