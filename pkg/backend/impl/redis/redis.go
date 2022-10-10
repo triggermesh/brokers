@@ -75,7 +75,7 @@ func (s *redis) Init(ctx context.Context) error {
 		DB:       s.args.Database,
 	})
 
-	return nil
+	return s.Probe(ctx)
 }
 
 func (s *redis) Start(ctx context.Context) error {

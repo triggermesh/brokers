@@ -6,6 +6,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"go.uber.org/zap"
 
@@ -24,12 +25,21 @@ type Watcher struct {
 	cbs    []WatcherCallback
 }
 
-func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) *Watcher {
+func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) (*Watcher, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+	}
+
+	if absPath != path {
+		return nil, fmt.Errorf("configuration path %q needs to be abstolute", path)
+	}
+
 	return &Watcher{
 		cfw:    cfw,
 		path:   path,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (cw *Watcher) AddCallback(cb WatcherCallback) {

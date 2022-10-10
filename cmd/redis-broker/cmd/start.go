@@ -4,6 +4,9 @@
 package cmd
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
 	"github.com/triggermesh/brokers/pkg/broker"
 	"github.com/triggermesh/brokers/pkg/common/fs"
@@ -13,10 +16,9 @@ import (
 )
 
 type StartCmd struct {
-	InstanceName string `help:"Gateway instance name." default:"default"`
-	ConfigPath   string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
+	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
 
-	Redis redis.RedisArgs `embed:"" prefix:"redis."`
+	Redis redis.RedisArgs `embed:"" prefix:"redis." envprefix:"REDIS_"`
 }
 
 func (c *StartCmd) Run(globals *Globals) error {
@@ -41,7 +43,16 @@ func (c *StartCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	cfgw := cfgwatcher.NewWatcher(cfw, c.ConfigPath, globals.logger.Named("cgfwatch"))
+
+	configPath, err := filepath.Abs(c.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("error resolving to absoluthe path %q: %w", c.ConfigPath, err)
+	}
+
+	cfgw, err := cfgwatcher.NewWatcher(cfw, configPath, globals.logger.Named("cgfwatch"))
+	if err != nil {
+		return err
+	}
 
 	// Create broker to start all runtimer elements
 	// an manage signaling

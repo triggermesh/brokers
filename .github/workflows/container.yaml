@@ -1,4 +1,4 @@
-name: Container Image
+name: Container images
 
 on:
   push:
@@ -8,14 +8,10 @@ on:
   schedule:
   - cron: '0 0 * * 0'  # At 00:00 every Sunday
 
-concurrency:
-  group: container-image-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
 
   container_image:
-    name: Create container image and push to registry
+    name: Container images for brokers
     runs-on: ubuntu-latest
 
     steps:

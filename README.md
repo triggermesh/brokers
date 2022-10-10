@@ -65,10 +65,22 @@ Launch the broker providing parameters for the backing server.
 go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --config-path ".local/config.yaml"
 ```
 
+Alternatively environment variables could be used.
+
+```console
+CONFIG_PATH=.local/config.yaml REDIS_ADDRESS=0.0.0.0:6379 go run ./cmd/redis-broker start
+```
+
 ## Memory
 
 ```console
 go run ./cmd/memory-broker start --memory.buffer-size 100 --memory.produce-timeout 1s --config-path ".local/config.yaml"
+```
+
+Alternatively environment variables could be used.
+
+```console
+CONFIG_PATH=.local/config.yaml MEMORY_BUFFER_SIZE=100 MEMORY_PRODUCE_TIMEOUT=1s go run ./cmd/memory-broker start
 ```
 
 ## Container
