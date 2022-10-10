@@ -24,15 +24,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      redis-broker:
-        image: gcr.io/triggermesh/redis-broker:${{ github.sha }}
-        ports:
-        - 8080:8080
-        env:
-          CONFIG_PATH: "/etc/triggermesh/broker.conf"
-          REDIS_ADDRESS: 0.0.0.0:6379
-        volumes:
-        - "${GITHUB_WORKSPACE}/config/broker.conf:/etc/triggermesh/broker.conf"
     steps:
     - uses: actions/checkout@v3
 
@@ -41,13 +32,15 @@ jobs:
       with:
         go-version: 1.19.x
 
-    - name: Copy initial broker config
-      run: |
-        bash "${GITHUB_WORKSPACE}/tests/e2e/apply-config.sh"
+    - name: Go caches
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ github.job }}-${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ github.job }}-${{ runner.os }}-go-
 
-    - name: Start broker from code
-      run: |
-        sleep 5;
-        go run ./cmd/redis-broker start \
-          --redis.address "localhost:${{ job.services.redis.ports[6379] }}" \
-          --config-path "${GITHUB_WORKSPACE}/.local/config.yaml"
+    - name: Launch e2e tests
+      run: go test -v ./test/e2e -tags e2e
