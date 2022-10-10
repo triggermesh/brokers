@@ -1,12 +1,10 @@
 name: E2e tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-  - cron: '0 0 * * 0'  # At 00:00 every Sunday
+  workflow_run:
+    workflows: ["Container images"]
+    types:
+      - completed
 
 jobs:
   e2e:
@@ -26,7 +24,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    services:
       redis-broker:
         image: gcr.io/triggermesh/redis-broker:${{ github.sha }}
         ports:
