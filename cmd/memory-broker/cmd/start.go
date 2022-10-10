@@ -13,9 +13,9 @@ import (
 )
 
 type StartCmd struct {
-	ConfigPath string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
+	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/gateway.conf"`
 
-	Memory memory.MemoryArgs `embed:"" prefix:"memory."`
+	Memory memory.MemoryArgs `embed:"" prefix:"memory." envprefix:"MEMORY_"`
 }
 
 func (c *StartCmd) Run(globals *Globals) error {

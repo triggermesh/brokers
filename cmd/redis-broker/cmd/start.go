@@ -13,10 +13,9 @@ import (
 )
 
 type StartCmd struct {
-	InstanceName string `help:"Gateway instance name." default:"default"`
-	ConfigPath   string `help:"Path to configuration file." default:"/etc/triggermesh/gateway.conf"`
+	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/gateway.conf"`
 
-	Redis redis.RedisArgs `embed:"" prefix:"redis."`
+	Redis redis.RedisArgs `embed:"" prefix:"redis." envprefix:"REDIS_"`
 }
 
 func (c *StartCmd) Run(globals *Globals) error {
