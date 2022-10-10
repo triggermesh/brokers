@@ -2,9 +2,9 @@ name: E2e tests
 
 on:
   workflow_run:
-    workflows: ["Container images"]
+    workflows: [Container images]
     types:
-      - completed
+    - completed
 
 jobs:
   e2e:
