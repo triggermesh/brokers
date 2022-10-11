@@ -23,8 +23,8 @@ type Gateway struct {
 func main() {
 
 	// TODO configure logger
-	// zl, err := zap.NewProduction()
-	zl, err := zap.NewDevelopment()
+	zl, err := zap.NewProduction()
+	// zl, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}

@@ -216,7 +216,7 @@ func (s *redis) unsubscribe(name string) {
 		// Clean exit.
 	case <-time.After(unsubscribeTimeout):
 		// Timed out, some events have not been delivered.
-		s.logger.Error(fmt.Sprintf("Unsubscribing from Redis timed out after %d", unsubscribeTimeout),
+		s.logger.Errorw(fmt.Sprintf("Unsubscribing from Redis timed out after %d", unsubscribeTimeout),
 			zap.String("name", name))
 	}
 

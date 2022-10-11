@@ -47,7 +47,7 @@ func (s *Instance) Start(ctx context.Context) error {
 
 	h, err := cloudevents.NewHTTPReceiveHandler(ctx, p, s.cloudEventsHandler)
 	if err != nil {
-		return fmt.Errorf("failed to create CloudEvents handler: %v", err.Error())
+		return fmt.Errorf("failed to create CloudEvents handler: %w", err)
 	}
 
 	r.Handle("/", h)
@@ -56,13 +56,13 @@ func (s *Instance) Start(ctx context.Context) error {
 		if err := s.probeHandler(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, werr := w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
-			s.logger.Error("Could not write HTTP response (not healthy)", zap.Errors("error", []error{
+			s.logger.Errorw("Could not write HTTP response (not healthy)", zap.Errors("error", []error{
 				werr, err}))
 			return
 		}
 
 		_, err = w.Write([]byte(`{"ok": "true"}`))
-		s.logger.Error("Could not write HTTP response (healthy)", zap.Error(err))
+		s.logger.Errorw("Could not write HTTP response (healthy)", zap.Error(err))
 	})
 
 	srv := &http.Server{
@@ -109,12 +109,12 @@ func (s *Instance) cloudEventsHandler(ctx context.Context, event cloudevents.Eve
 	s.logger.Debug(fmt.Sprintf("Received CloudEvent: %v", event.String()))
 
 	if s.ceHandler == nil {
-		s.logger.Error("CloudEvent lost due to no handler configured")
+		s.logger.Errorw("CloudEvent lost due to no handler configured")
 		return nil, protocol.ResultNACK
 	}
 
 	if err := s.ceHandler(ctx, &event); err != nil {
-		s.logger.Error("Could not produce CloudEvent to broker", zap.Error(err))
+		s.logger.Errorw("Could not produce CloudEvent to broker", zap.Error(err))
 		return nil, protocol.ResultNACK
 	}
 
