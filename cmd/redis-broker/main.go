@@ -11,16 +11,16 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/triggermesh/brokers/cmd/redis-broker/cmd"
+	pkgcmd "github.com/triggermesh/brokers/pkg/cmd"
 )
 
 type Gateway struct {
-	cmd.Globals
+	pkgcmd.Globals
 
 	Start cmd.StartCmd `cmd:"" help:"Starts the TriggerMesh gateway."`
 }
 
 func main() {
-	g := cmd.Globals{}
 
 	// TODO configure logger
 	// zl, err := zap.NewProduction()
@@ -29,11 +29,11 @@ func main() {
 		panic(err)
 	}
 
-	g.SetLogger(zl.Sugar())
-	g.SetContext(context.Background())
-
 	cli := Gateway{
-		Globals: g,
+		Globals: pkgcmd.Globals{
+			Logger:  zl.Sugar(),
+			Context: context.Background(),
+		},
 	}
 
 	instance, err := os.Hostname()
