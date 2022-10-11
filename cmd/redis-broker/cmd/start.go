@@ -9,6 +9,7 @@ import (
 
 	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
 	"github.com/triggermesh/brokers/pkg/broker"
+	pkgcmd "github.com/triggermesh/brokers/pkg/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	cfgwatcher "github.com/triggermesh/brokers/pkg/config/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
@@ -21,25 +22,25 @@ type StartCmd struct {
 	Redis redis.RedisArgs `embed:"" prefix:"redis." envprefix:"REDIS_"`
 }
 
-func (c *StartCmd) Run(globals *Globals) error {
-	globals.logger.Info("Starting gateway")
+func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
+	globals.Logger.Info("Starting gateway")
 
 	// Create backend client.
-	b := redis.New(&c.Redis, globals.logger.Named("redis"))
+	b := redis.New(&c.Redis, globals.Logger.Named("redis"))
 
 	// Create the subscription manager.
-	sm, err := subscriptions.New(globals.logger.Named("subs"), b)
+	sm, err := subscriptions.New(globals.Logger.Named("subs"), b)
 	if err != nil {
 		return err
 	}
 
 	// Create ingest server.
-	i := ingest.NewInstance(globals.logger.Named("ingest"))
+	i := ingest.NewInstance(globals.Logger.Named("ingest"))
 
 	// The ConfigWatcher will read the configfile and call registered
 	// callbacks upon start and everytime the configuration file
 	// is updated.
-	cfw, err := fs.NewCachedFileWatcher(globals.logger.Named("fswatch"))
+	cfw, err := fs.NewCachedFileWatcher(globals.Logger.Named("fswatch"))
 	if err != nil {
 		return err
 	}
@@ -49,14 +50,14 @@ func (c *StartCmd) Run(globals *Globals) error {
 		return fmt.Errorf("error resolving to absoluthe path %q: %w", c.ConfigPath, err)
 	}
 
-	cfgw, err := cfgwatcher.NewWatcher(cfw, configPath, globals.logger.Named("cgfwatch"))
+	cfgw, err := cfgwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
 	if err != nil {
 		return err
 	}
 
 	// Create broker to start all runtimer elements
 	// an manage signaling
-	bi := broker.NewInstance(b, i, sm, cfgw, globals.logger)
+	bi := broker.NewInstance(b, i, sm, cfgw, globals.Logger)
 
-	return bi.Start(globals.context)
+	return bi.Start(globals.Context)
 }
