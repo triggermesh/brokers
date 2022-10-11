@@ -227,6 +227,6 @@ func (s *redis) unsubscribe(name string) {
 func (s *redis) Probe(ctx context.Context) error {
 	res := s.client.ClientID(ctx)
 	id, err := res.Result()
-	s.logger.Debug(fmt.Sprintf("client id is %d", id))
+	s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
 	return err
 }

@@ -17,8 +17,6 @@ import (
 )
 
 type StartCmd struct {
-	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
-
 	Memory memory.MemoryArgs `embed:"" prefix:"memory." envprefix:"MEMORY_"`
 }
 
@@ -45,9 +43,9 @@ func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 		return err
 	}
 
-	configPath, err := filepath.Abs(c.ConfigPath)
+	configPath, err := filepath.Abs(globals.ConfigPath)
 	if err != nil {
-		return fmt.Errorf("error resolving to absoluthe path %q: %w", c.ConfigPath, err)
+		return fmt.Errorf("error resolving to absoluthe path %q: %w", globals.ConfigPath, err)
 	}
 
 	cfgw, err := cfgwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
