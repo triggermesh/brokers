@@ -109,7 +109,7 @@ func (s *subscriber) dispatchCloudEventToTarget(target *config.Target, event *cl
 
 	// Attribute "lost": true is set help log aggregators identify
 	// lost events by querying.
-	s.logger.Error(fmt.Sprintf("Event was lost while sending to %s",
+	s.logger.Errorw(fmt.Sprintf("Event was lost while sending to %s",
 		cloudevents.TargetFromContext(s.ctx).String()), zap.Bool("lost", true),
 		zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 }
@@ -121,7 +121,7 @@ func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {
 	case cloudevents.IsACK(result):
 		if res != nil {
 			if err := s.backend.Produce(ctx, res); err != nil {
-				s.logger.Error(fmt.Sprintf("Failed to consume response from %s",
+				s.logger.Errorw(fmt.Sprintf("Failed to consume response from %s",
 					cloudevents.TargetFromContext(ctx).String()),
 					zap.Error(err), zap.String("type", res.Type()), zap.String("source", res.Source()), zap.String("id", res.ID()))
 
@@ -133,19 +133,19 @@ func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {
 		return true
 
 	case cloudevents.IsUndelivered(result):
-		s.logger.Error(fmt.Sprintf("Failed to send event to %s",
+		s.logger.Errorw(fmt.Sprintf("Failed to send event to %s",
 			cloudevents.TargetFromContext(ctx).String()),
 			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 		return false
 
 	case cloudevents.IsNACK(result):
-		s.logger.Error(fmt.Sprintf("Event not accepted at %s",
+		s.logger.Errorw(fmt.Sprintf("Event not accepted at %s",
 			cloudevents.TargetFromContext(ctx).String()),
 			zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 		return false
 	}
 
-	s.logger.Error(fmt.Sprintf("Unknown event send outcome at %s",
+	s.logger.Errorw(fmt.Sprintf("Unknown event send outcome at %s",
 		cloudevents.TargetFromContext(ctx).String()),
 		zap.Error(result), zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 	return false

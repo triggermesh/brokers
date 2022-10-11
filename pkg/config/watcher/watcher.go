@@ -76,7 +76,7 @@ func (cw *Watcher) update(content []byte) {
 
 	cfg, err := config.Parse(string(content))
 	if err != nil {
-		cw.logger.Error(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
+		cw.logger.Errorw(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
 		return
 	}
 

@@ -74,13 +74,13 @@ func (s *subscription) start() {
 				// canceled
 				if !strings.HasSuffix(err.Error(), "i/o timeout") &&
 					err.Error() != "context canceled" {
-					s.logger.Error("Error reading CloudEvents from consumer group", zap.String("groups", s.group), zap.Error(err))
+					s.logger.Errorw("Error reading CloudEvents from consumer group", zap.String("groups", s.group), zap.Error(err))
 				}
 				continue
 			}
 
 			if len(streams) != 1 {
-				s.logger.Error("unexpected number of streams read", zap.Any("streams", streams))
+				s.logger.Errorw("unexpected number of streams read", zap.Any("streams", streams))
 				continue
 			}
 
@@ -99,7 +99,7 @@ func (s *subscription) start() {
 					}
 
 					if err = ce.UnmarshalJSON([]byte(v.(string))); err != nil {
-						s.logger.Error("Could not unmarshal CloudEvent from Redis", zap.Error(err))
+						s.logger.Errorw("Could not unmarshal CloudEvent from Redis", zap.Error(err))
 						continue
 					}
 				}
@@ -108,7 +108,7 @@ func (s *subscription) start() {
 				if err = ce.Validate(); err != nil {
 					s.logger.Warn(fmt.Sprintf("Removing non CloudEvent message from backend: %s", msg.ID))
 					if err = s.ack(msg.ID); err != nil {
-						s.logger.Error(fmt.Sprintf("could not ACK the Redis message %s containing a non valid CloudEvent", id),
+						s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing a non valid CloudEvent", id),
 							zap.Error(err))
 					}
 
@@ -116,7 +116,7 @@ func (s *subscription) start() {
 				}
 
 				if err = ce.Context.SetExtension("tmbackendid", msg.ID); err != nil {
-					s.logger.Error(fmt.Sprintf("could not set tmbackendid attributes for the Redis message %s. Tracking will not be possible.", msg.ID),
+					s.logger.Errorw(fmt.Sprintf("could not set tmbackendid attributes for the Redis message %s. Tracking will not be possible.", msg.ID),
 						zap.Error(err))
 				}
 
@@ -125,7 +125,7 @@ func (s *subscription) start() {
 					id := ce.Extensions()["tmbackendid"].(string)
 
 					if err := s.ack(id); err != nil {
-						s.logger.Error(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", id, ce.Context.GetID()),
+						s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", id, ce.Context.GetID()),
 							zap.Error(err))
 					}
 				}()

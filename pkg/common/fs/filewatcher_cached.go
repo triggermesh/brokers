@@ -68,7 +68,7 @@ func (ccw *cachedFileWatcher) callback(path string, cb CachedWatchCallback) Watc
 		ccw.m.Lock()
 		defer ccw.m.Unlock()
 		if err := ccw.updateContentFromFile(path); err != nil {
-			ccw.logger.Error("Could not read watched file", zap.Error(err))
+			ccw.logger.Errorw("Could not read watched file", zap.Error(err))
 		}
 
 		// Call user's callback
@@ -88,7 +88,7 @@ func (ccw *cachedFileWatcher) Add(path string, cb CachedWatchCallback) error {
 	defer ccw.m.Unlock()
 	if _, ok := ccw.watchedFiles[path]; !ok {
 		if err := ccw.updateContentFromFile(path); err != nil {
-			ccw.logger.Error("Could not get content from file", zap.Error(err))
+			ccw.logger.Errorw("Could not get content from file", zap.Error(err))
 			// initialize to be able to distinguish paths not being watched
 			// and those being watched but not available.
 			ccw.watchedFiles[path] = nil

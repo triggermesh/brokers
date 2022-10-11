@@ -92,7 +92,7 @@ func (cw *fileWatcher) Start(ctx context.Context) {
 					if e.Op&fsnotify.Remove == fsnotify.Remove {
 						if fileExist(e.Name) {
 							if err := cw.watcher.Add(e.Name); err != nil {
-								cw.logger.Error(
+								cw.logger.Errorw(
 									fmt.Sprintf("could not add the path %q back to the watcher", e.Name),
 									zap.Error(err))
 							}
@@ -116,7 +116,7 @@ func (cw *fileWatcher) Start(ctx context.Context) {
 						// watcher error channel finished
 						return
 					}
-					cw.logger.Error("Error watching files", zap.Error(err))
+					cw.logger.Errorw("Error watching files", zap.Error(err))
 
 				case <-ctx.Done():
 					cw.logger.Debug("Exiting file watcher process")

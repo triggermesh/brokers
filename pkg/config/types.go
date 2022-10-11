@@ -80,12 +80,6 @@ func (i *Target) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-// type Trigger struct {
-// 	Name    string                              `json:"name"`
-// 	Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
-// 	Targets []Target                            `json:"targets"`
-// }
-
 type Trigger struct {
 	// Name    string                              `json:"name"`
 	Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
@@ -98,9 +92,6 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	if t == nil {
 		return nil
 	}
-	// for i, trg := range t.Targets {
-	// 	errs = errs.Also(trg.Validate(ctx)).ViaFieldIndex("targets", i)
-	// }
 	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
 
 	return errs.Also(eventingv1.ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
