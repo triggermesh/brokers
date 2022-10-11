@@ -14,27 +14,26 @@ import (
 	cfgwatcher "github.com/triggermesh/brokers/pkg/config/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
+	"go.uber.org/zap"
 )
 
 type StartCmd struct {
-	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
-
 	Redis redis.RedisArgs `embed:"" prefix:"redis." envprefix:"REDIS_"`
 }
 
 func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
-	globals.Logger.Info("Starting gateway")
+	globals.Logger.Info("Starting broker")
 
-	// Create backend client.
+	globals.Logger.Debug("Creating Redis client")
 	b := redis.New(&c.Redis, globals.Logger.Named("redis"))
 
-	// Create the subscription manager.
+	globals.Logger.Debug("Creating subscription manager")
 	sm, err := subscriptions.New(globals.Logger.Named("subs"), b)
 	if err != nil {
 		return err
 	}
 
-	// Create ingest server.
+	globals.Logger.Debug("Creating HTTP ingest server")
 	i := ingest.NewInstance(globals.Logger.Named("ingest"))
 
 	// The ConfigWatcher will read the configfile and call registered
@@ -45,18 +44,18 @@ func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 		return err
 	}
 
-	configPath, err := filepath.Abs(c.ConfigPath)
+	configPath, err := filepath.Abs(globals.ConfigPath)
 	if err != nil {
-		return fmt.Errorf("error resolving to absoluthe path %q: %w", c.ConfigPath, err)
+		return fmt.Errorf("error resolving to absoluthe path %q: %w", globals.ConfigPath, err)
 	}
 
+	globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
 	cfgw, err := cfgwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
 	if err != nil {
 		return err
 	}
 
-	// Create broker to start all runtimer elements
-	// an manage signaling
+	globals.Logger.Debug("Creating broker instance")
 	bi := broker.NewInstance(b, i, sm, cfgw, globals.Logger)
 
 	return bi.Start(globals.Context)

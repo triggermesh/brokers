@@ -40,6 +40,7 @@ func NewInstance(backend backend.Interface, ingest *ingest.Instance, subscriptio
 }
 
 func (i *Instance) Start(inctx context.Context) error {
+	i.logger.Debug("Starting broker instance")
 	sigctx, stop := signal.NotifyContext(inctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -47,6 +48,7 @@ func (i *Instance) Start(inctx context.Context) error {
 
 	// Initialization will create structures, execute migrations
 	// and claim non processed messages from the backend.
+	i.logger.Debug("Initializing backend")
 	err := i.backend.Init(ctx)
 	if err != nil {
 		return fmt.Errorf("could not initialize backend: %v", err)
@@ -55,6 +57,7 @@ func (i *Instance) Start(inctx context.Context) error {
 	// Start is a blocking function that will read messages from the backend
 	// implementation and send them to the subscription manager dispatcher.
 	// When the dispatcher returns the message is marked as processed.
+	i.logger.Debug("Starting backend routine")
 	grp.Go(func() error {
 		return i.backend.Start(ctx)
 	})
@@ -62,12 +65,14 @@ func (i *Instance) Start(inctx context.Context) error {
 	// ConfigWatcher will callback reconfigurations for:
 	// - Ingest: if authentication parameters are updated.
 	// - Subscription manager: if triggers configurations changes.
+	i.logger.Debug("Adding config watcher callbacks")
 	i.cw.AddCallback(i.ingest.UpdateFromConfig)
 	i.cw.AddCallback(i.subscription.UpdateFromConfig)
 
 	// Start the configuration watcher.
 	// There is no need to add it to the wait group
 	// since it cleanly exits when context is done.
+	i.logger.Debug("Starting configuration watcher")
 	if err = i.cw.Start(ctx); err != nil {
 		return fmt.Errorf("could not start configuration watcher: %v", err)
 	}
