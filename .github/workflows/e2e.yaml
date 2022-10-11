@@ -43,4 +43,4 @@ jobs:
           ${{ github.job }}-${{ runner.os }}-go-
 
     - name: Launch e2e tests
-      run: go test -v ./test/e2e -tags e2e
+      run: go test --count 1 -v ./test/e2e/... -tags e2e
