@@ -5,7 +5,8 @@ package cmd
 
 import (
 	"github.com/triggermesh/brokers/pkg/backend/impl/memory"
-	pkgcmd "github.com/triggermesh/brokers/pkg/cmd"
+	"github.com/triggermesh/brokers/pkg/broker"
+	pkgcmd "github.com/triggermesh/brokers/pkg/broker/cmd"
 )
 
 type StartCmd struct {
@@ -14,7 +15,12 @@ type StartCmd struct {
 
 func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 	globals.Logger.Debug("Creating memory backend client")
-	b := memory.New(&c.Memory, globals.Logger.Named("memory"))
+	backend := memory.New(&c.Memory, globals.Logger.Named("memory"))
 
-	return pkgcmd.Run(globals, b)
+	b, err := broker.NewInstance(globals, backend)
+	if err != nil {
+		return err
+	}
+
+	return b.Start(globals.Context)
 }

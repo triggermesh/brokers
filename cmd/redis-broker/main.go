@@ -11,10 +11,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/triggermesh/brokers/cmd/redis-broker/cmd"
-	pkgcmd "github.com/triggermesh/brokers/pkg/cmd"
+	pkgcmd "github.com/triggermesh/brokers/pkg/broker/cmd"
 )
 
-type Gateway struct {
+type cli struct {
 	pkgcmd.Globals
 
 	Start cmd.StartCmd `cmd:"" help:"Starts the TriggerMesh broker."`
@@ -29,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	cli := Gateway{
+	cli := cli{
 		Globals: pkgcmd.Globals{
 			Logger:  zl.Sugar(),
 			Context: context.Background(),
