@@ -17,7 +17,7 @@ import (
 type Gateway struct {
 	pkgcmd.Globals
 
-	Start cmd.StartCmd `cmd:"" help:"Starts the TriggerMesh gateway."`
+	Start cmd.StartCmd `cmd:"" help:"Starts the TriggerMesh broker."`
 }
 
 func main() {
