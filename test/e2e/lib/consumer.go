@@ -1,68 +1,56 @@
-//go:build e2e
-// +build e2e
+// Copyright 2022 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 package lib
 
 import (
 	"context"
-	"sync"
-	"time"
+	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
-type StoredEvent struct {
-	Time  time.Time
-	Event cloudevents.Event
+type Consumer interface {
+	Start(ctx context.Context) error
+	GetStoredEvents() []StoredEvent
+	GetConsumerEndPoint() string
 }
 
-type Store struct {
-	elements []StoredEvent
-	mutex    sync.RWMutex
-}
-
-func (s *Store) Add(event cloudevents.Event) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.elements = append(s.elements, StoredEvent{
-		Time:  time.Now(),
-		Event: event,
-	})
-}
-
-func (s *Store) GetAll() []StoredEvent {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var res []StoredEvent
-	res = append(res, s.elements...)
-	return res
-}
-
-type Consumer struct {
+type SimpleConsumer struct {
 	client cloudevents.Client
-	Store  Store
+	store  Store
+	port   int
 }
 
-func NewConsumer(port int) (*Consumer, error) {
+func NewSimpleConsumer(port int) Consumer {
 	client, err := cloudevents.NewClientHTTP(
 		cloudevents.WithPort(port),
 	)
 	if err != nil {
-		return nil, err
+		// chances of erroring creating the CloudEvents client
+		// are low, and returning an error spoils the simplicity.
+		panic(err)
 	}
 
-	return &Consumer{
+	return &SimpleConsumer{
 		client: client,
-	}, nil
+		port:   port,
+	}
 }
 
-func (s *Consumer) Start(ctx context.Context) error {
+func (s *SimpleConsumer) Start(ctx context.Context) error {
 	return s.client.StartReceiver(ctx, s.receive)
 }
 
-func (s *Consumer) receive(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, cloudevents.Result) {
-	s.Store.Add(event)
+func (s *SimpleConsumer) receive(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, cloudevents.Result) {
+	s.store.Add(event, StoredEventWithResult(cloudevents.ResultACK))
 	return nil, cloudevents.ResultACK
+}
+
+func (s *SimpleConsumer) GetStoredEvents() []StoredEvent {
+	return s.store.elements
+}
+
+func (s *SimpleConsumer) GetConsumerEndPoint() string {
+	return fmt.Sprintf("0.0.0.0:%d", s.port)
 }
