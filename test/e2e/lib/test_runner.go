@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -71,11 +70,11 @@ type BrokerTestRunner struct {
 	schedule  Schedule
 
 	t    *testing.T
-	logs observer.ObservedLogs
+	logs *observer.ObservedLogs
 }
 
 func NewBrokerTestRunner(ctx context.Context, t *testing.T) *BrokerTestRunner {
-	cfgfile, err := ioutil.TempFile("", "broker-*.conf")
+	cfgfile, err := os.CreateTemp("", "broker-*.conf")
 	require.NoError(t, err, "Failed to create configuration for broker")
 	cfgfile.Close()
 
@@ -94,7 +93,7 @@ func NewBrokerTestRunner(ctx context.Context, t *testing.T) *BrokerTestRunner {
 		consumers: make(map[string]Consumer),
 
 		t:    t,
-		logs: *observedLogs,
+		logs: observedLogs,
 	}
 }
 
@@ -158,6 +157,6 @@ func (r *BrokerTestRunner) AddConsumer(name string, consumer Consumer) {
 	r.consumers[name] = consumer
 }
 
-func (r *BrokerTestRunner) GetObservedLogs() observer.ObservedLogs {
+func (r *BrokerTestRunner) GetObservedLogs() *observer.ObservedLogs {
 	return r.logs
 }
