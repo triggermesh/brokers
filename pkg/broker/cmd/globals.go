@@ -12,6 +12,7 @@ import (
 
 type Globals struct {
 	ConfigPath string `help:"Path to configuration file." env:"CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
+	Port       int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 
 	Context context.Context    `kong:"-"`
 	Logger  *zap.SugaredLogger `kong:"-"`
