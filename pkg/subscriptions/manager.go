@@ -65,7 +65,7 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 
 	for name, sub := range m.subscribers {
 		if _, ok := c.Triggers[name]; !ok {
-			m.logger.Info("Deleting subscription", zap.String("name", name))
+			m.logger.Infow("Deleting subscription", zap.String("name", name))
 			sub.unsubscribe()
 			delete(m.subscribers, name)
 		}
@@ -83,7 +83,7 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 				logger:    m.logger,
 			}
 
-			m.logger.Info("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
+			m.logger.Infow("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 			if err := s.updateTrigger(trigger); err != nil {
 				m.logger.Errorw("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
 				continue
@@ -104,7 +104,7 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 		}
 
 		// Update existing subscription with new data.
-		m.logger.Info("Updating subscription upon trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
+		m.logger.Infow("Updating subscription upon trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 		if err := s.updateTrigger(trigger); err != nil {
 			m.logger.Errorw("Could not setup trigger", zap.String("name", name), zap.Error(err))
 			return

@@ -202,7 +202,7 @@ func (s *redis) Unsubscribe(name string) {
 func (s *redis) unsubscribe(name string) {
 	sub, ok := s.subs[name]
 	if !ok {
-		s.logger.Info("Unsubscribe action was not needed since the subscription did not exist",
+		s.logger.Infow("Unsubscribe action was not needed since the subscription did not exist",
 			zap.String("name", name))
 		return
 	}
