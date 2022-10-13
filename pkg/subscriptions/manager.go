@@ -60,6 +60,7 @@ func New(logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
 }
 
 func (m *Manager) UpdateFromConfig(c *config.Config) {
+	m.logger.Debug("Updating configuration")
 	m.m.Lock()
 	defer m.m.Unlock()
 
@@ -95,6 +96,7 @@ func (m *Manager) UpdateFromConfig(c *config.Config) {
 			}
 
 			m.subscribers[name] = s
+			m.logger.Infow("Subscription for trigger updated", zap.String("name", name))
 			continue
 		}
 

@@ -68,7 +68,6 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	}
 
 	globals.Logger.Debug("Creating HTTP ingest server")
-	globals.Logger.Infow("DEBUG DELETEME", zap.Int("port", globals.Port))
 	i := ingest.NewInstance(globals.Logger.Named("ingest"),
 		ingest.InstanceWithPort(globals.Port),
 	)
