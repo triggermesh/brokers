@@ -186,7 +186,8 @@ func (r *BrokerTestRunner) StartBroker(name string) {
 	b.Cancel = cancel
 
 	go func() {
-		b.Instance.Start(ctx)
+		err := b.Instance.Start(ctx)
+		require.NoError(r.t, err, "Error running broker instance")
 		<-ctx.Done()
 		b.Status = RunnerComponentStatusStopped
 	}()
@@ -306,7 +307,8 @@ func (r *BrokerTestRunner) StartConsumer(name string) {
 	c.Cancel = cancel
 
 	go func() {
-		c.Consumer.Start(ctx)
+		err := c.Consumer.Start(ctx)
+		require.NoError(r.t, err, "Error running consumer instance")
 		<-ctx.Done()
 		c.Status = RunnerComponentStatusStopped
 	}()
