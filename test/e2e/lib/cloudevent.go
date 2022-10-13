@@ -5,6 +5,7 @@ package lib
 
 import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/google/uuid"
 )
 
 const (
@@ -13,8 +14,8 @@ const (
 )
 
 func NewCloudEvent() cloudevents.Event {
-	// Create an Event.
 	event := cloudevents.NewEvent()
+	event.SetID(uuid.New().String())
 	event.SetSource(tSource)
 	event.SetType(tType)
 

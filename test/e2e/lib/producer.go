@@ -31,9 +31,10 @@ func (p *SimpleProducer) Produce(ctx context.Context, event cloudevents.Event) e
 		return err
 	}
 
-	result := c.Send(cloudevents.ContextWithTarget(ctx, p.endpoint), event)
+	result := c.Send(cloudevents.ContextWithTarget(cloudevents.ContextWithTarget(ctx, p.endpoint), p.endpoint), event)
 
 	p.store.Add(event, StoredEventWithResult(result))
+
 	if cloudevents.IsUndelivered(result) {
 		return result
 	}

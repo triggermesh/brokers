@@ -6,6 +6,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
@@ -14,6 +15,7 @@ type Consumer interface {
 	Start(ctx context.Context) error
 	GetStoredEvents() []StoredEvent
 	GetConsumerEndPoint() string
+	WaitForEvent(timeout time.Duration, filters ...EventFilterOption) bool
 }
 
 type SimpleConsumer struct {
@@ -52,5 +54,42 @@ func (s *SimpleConsumer) GetStoredEvents() []StoredEvent {
 }
 
 func (s *SimpleConsumer) GetConsumerEndPoint() string {
-	return fmt.Sprintf("0.0.0.0:%d", s.port)
+	return fmt.Sprintf("http://0.0.0.0:%d", s.port)
+}
+
+type EventFilterOption func(event *cloudevents.Event) bool
+
+func EventiFilterWithID(id string) EventFilterOption {
+	return func(event *cloudevents.Event) bool {
+		return event.ID() == id
+	}
+}
+
+func (s *SimpleConsumer) WaitForEvent(timeout time.Duration, filters ...EventFilterOption) bool {
+	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, e := range s.store.elements {
+
+				valid := true
+				for _, filter := range filters {
+					if !filter(&e.Event) {
+						valid = false
+						break
+					}
+				}
+
+				if valid {
+					return true
+				}
+			}
+
+		case <-timeoutCh:
+			return false
+		}
+	}
 }

@@ -14,14 +14,14 @@ type StoredEventOption func(*StoredEvent)
 
 type StoredEvent struct {
 	Time   time.Time
-	Event  *cloudevents.Event
-	Result *cloudevents.Result
-	Reply  *cloudevents.Event
+	Event  cloudevents.Event
+	Result cloudevents.Result
+	Reply  cloudevents.Event
 }
 
 func StoredEventWithResult(r cloudevents.Result) StoredEventOption {
 	return func(se *StoredEvent) {
-		se.Result = &r
+		se.Result = r
 	}
 }
 
@@ -33,7 +33,7 @@ type Store struct {
 func (s *Store) Add(event cloudevents.Event, opts ...StoredEventOption) {
 	se := StoredEvent{
 		Time:  time.Now(),
-		Event: &event,
+		Event: event,
 	}
 
 	for _, opt := range opts {
