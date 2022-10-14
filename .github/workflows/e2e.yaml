@@ -1,10 +1,12 @@
 name: E2e tests
 
 on:
-  workflow_run:
-    workflows: [Container images]
-    types:
-    - completed
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+  - cron: '0 0 * * 0'  # At 00:00 every Sunday
 
 jobs:
   e2e:
@@ -43,4 +45,4 @@ jobs:
           ${{ github.job }}-${{ runner.os }}-go-
 
     - name: Launch e2e tests
-      run: go test --count 1 -v ./test/e2e/... -tags e2e
+      run: go test --count 1 ./test/e2e/... -tags e2e
