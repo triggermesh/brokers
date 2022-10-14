@@ -8,6 +8,8 @@ package redis
 
 import (
 	"context"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -19,15 +21,38 @@ import (
 	"go.uber.org/zap"
 )
 
+var runner *lib.BrokerTestRunner
+
+func TestMain(m *testing.M) {
+	InitializeRedisFlags()
+	exit := m.Run()
+
+	if exit != 0 {
+		log.Printf("Error executing tests\n")
+		ol := runner.GetObservedLogs()
+		for _, l := range ol.All() {
+			log.Printf("%s:%s: %s || %v\n", l.Level, l.LoggerName, l.Message, l.Context)
+		}
+
+		// TODO iterate producers and consumers, print their stored events
+	}
+
+	os.Exit(exit)
+}
+
 func TestRedisBroker(t *testing.T) {
 	ctx := context.Background()
 
-	runner := lib.NewBrokerTestRunner(ctx, t)
+	runner = lib.NewBrokerTestRunner(ctx, t)
 	defer runner.CleanUp()
 
 	// TODO customize to use non local brokers, this
 	// args assume a local Redis listening on default port
-	args := &redis.RedisArgs{}
+	args := &redis.RedisArgs{
+		Address:  Flags.RedisAddress,
+		Password: Flags.RedisPassword,
+		Stream:   Flags.RedisStream,
+	}
 	backend := redis.New(args, runner.GetLogger().Sugar().Named("redis"))
 	runner.AddBroker("main", 18080, backend)
 

@@ -12,6 +12,9 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
 
+    container:
+      image: golang:1.19
+
     services:
       redis:
         image: redis/redis-stack-server:latest
@@ -45,4 +48,4 @@ jobs:
           ${{ github.job }}-${{ runner.os }}-go-
 
     - name: Launch e2e tests
-      run: go test --count 1 ./test/e2e/... -tags e2e
+      run: go test --count 1 ./test/e2e/... -tags e2e --redis-address redis:6379
