@@ -4,13 +4,8 @@ on:
   push:
     branches: [main]
 
-  # pull_request:
-  #   branches: [main]
-  #   types: [closed]
-
 jobs:
   container_image:
-    if: github.event.pull_request.merged == true
     name: Container images for brokers
     runs-on: ubuntu-latest
 
