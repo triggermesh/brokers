@@ -1,4 +1,4 @@
-name: E2e tests
+name: E2e Redis tests
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
     branches: [main]
   schedule:
   - cron: '0 0 * * 0'  # At 00:00 every Sunday
+
+concurrency: e2e-redis
 
 jobs:
   e2e:
