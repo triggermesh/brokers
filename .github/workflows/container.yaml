@@ -1,14 +1,13 @@
 name: Container images
 
 on:
-  workflow_run:
-    workflows: [E2e tests]
-    types:
-    - completed
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 jobs:
-
   container_image:
+    if: github.event.pull_request.merged == true
     name: Container images for brokers
     runs-on: ubuntu-latest
 
