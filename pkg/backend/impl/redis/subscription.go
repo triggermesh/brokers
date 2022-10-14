@@ -16,6 +16,10 @@ import (
 	goredis "github.com/go-redis/redis/v9"
 )
 
+const (
+	BackendIDAttribute = "triggermeshbackendid"
+)
+
 type subscription struct {
 	instance string
 	stream   string
@@ -115,14 +119,14 @@ func (s *subscription) start() {
 					continue
 				}
 
-				if err = ce.Context.SetExtension("tmbackendid", msg.ID); err != nil {
-					s.logger.Errorw(fmt.Sprintf("could not set tmbackendid attributes for the Redis message %s. Tracking will not be possible.", msg.ID),
+				if err = ce.Context.SetExtension(BackendIDAttribute, msg.ID); err != nil {
+					s.logger.Errorw(fmt.Sprintf("could not set %s attributes for the Redis message %s. Tracking will not be possible.", BackendIDAttribute, msg.ID),
 						zap.Error(err))
 				}
 
 				go func() {
 					s.ccbDispatch(ce)
-					id := ce.Extensions()["tmbackendid"].(string)
+					id := ce.Extensions()[BackendIDAttribute].(string)
 
 					if err := s.ack(id); err != nil {
 						s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", id, ce.Context.GetID()),
