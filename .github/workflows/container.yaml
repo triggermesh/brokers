@@ -1,12 +1,10 @@
 name: Container images
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-  - cron: '0 0 * * 0'  # At 00:00 every Sunday
+  workflow_run:
+    workflows: [E2e tests]
+    types:
+    - completed
 
 jobs:
 
