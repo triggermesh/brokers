@@ -15,11 +15,11 @@ import (
 	"knative.dev/pkg/logging"
 
 	"github.com/triggermesh/brokers/pkg/backend"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 type Subscription struct {
-	Trigger config.Trigger
+	Trigger cfgbroker.Trigger
 }
 
 type Manager struct {
@@ -59,7 +59,7 @@ func New(logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
 	}, nil
 }
 
-func (m *Manager) UpdateFromConfig(c *config.Config) {
+func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 	m.logger.Debug("Updating configuration")
 	m.m.Lock()
 	defer m.m.Unlock()

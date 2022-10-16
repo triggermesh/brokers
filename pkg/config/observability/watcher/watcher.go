@@ -9,19 +9,20 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/triggermesh/brokers/pkg/common/fs"
-	"github.com/triggermesh/brokers/pkg/config"
+	"github.com/triggermesh/brokers/pkg/config/observability"
 )
 
-type WatcherCallback func(*config.Config)
+type WatcherCallback func(*observability.Config)
 
 type Watcher struct {
 	cfw    fs.CachedFileWatcher
 	path   string
 	logger *zap.SugaredLogger
 
-	config *config.Config
+	config *observability.Config
 	cbs    []WatcherCallback
 }
 
@@ -46,7 +47,7 @@ func (cw *Watcher) AddCallback(cb WatcherCallback) {
 	cw.cbs = append(cw.cbs, cb)
 }
 
-func (cw *Watcher) GetConfig() *config.Config {
+func (cw *Watcher) GetConfig() *observability.Config {
 	return cw.config
 }
 
@@ -70,13 +71,12 @@ func (cw *Watcher) Start(ctx context.Context) error {
 func (cw *Watcher) update(content []byte) {
 	if len(content) == 0 {
 		// Discard file events that do not inform content.
-		cw.logger.Debug(fmt.Sprintf("Received event with empty contents for %s", cw.path))
 		return
 	}
 
-	cfg, err := config.Parse(string(content))
-	if err != nil {
-		cw.logger.Errorw(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
+	cfg := &observability.Config{}
+	if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
+		cw.logger.Errorw(fmt.Sprintf("Contents for %s are not valid", cw.path), zap.Error(err))
 		return
 	}
 

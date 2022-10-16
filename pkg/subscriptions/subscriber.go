@@ -18,11 +18,11 @@ import (
 	"knative.dev/pkg/logging"
 
 	"github.com/triggermesh/brokers/pkg/backend"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 type subscriber struct {
-	trigger config.Trigger
+	trigger cfgbroker.Trigger
 
 	name     string
 	backend  backend.Interface
@@ -44,7 +44,7 @@ func (s *subscriber) unsubscribe() {
 	s.backend.Unsubscribe(s.name)
 }
 
-func (s *subscriber) updateTrigger(trigger config.Trigger) error {
+func (s *subscriber) updateTrigger(trigger cfgbroker.Trigger) error {
 	ctx := cloudevents.ContextWithTarget(s.parentCtx, trigger.Target.URL)
 	if trigger.Target.DeliveryOptions != nil &&
 		trigger.Target.DeliveryOptions.Retry != nil &&
@@ -57,11 +57,11 @@ func (s *subscriber) updateTrigger(trigger config.Trigger) error {
 		}
 
 		switch *trigger.Target.DeliveryOptions.BackoffPolicy {
-		case config.BackoffPolicyLinear:
+		case cfgbroker.BackoffPolicyLinear:
 			ctx = cloudevents.ContextWithRetriesLinearBackoff(
 				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
 
-		case config.BackoffPolicyExponential:
+		case cfgbroker.BackoffPolicyExponential:
 			ctx = cloudevents.ContextWithRetriesExponentialBackoff(
 				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
 
@@ -94,7 +94,7 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	s.dispatchCloudEventToTarget(&t, event)
 }
 
-func (s *subscriber) dispatchCloudEventToTarget(target *config.Target, event *cloudevents.Event) {
+func (s *subscriber) dispatchCloudEventToTarget(target *cfgbroker.Target, event *cloudevents.Event) {
 	if s.send(s.ctx, event) {
 		return
 	}

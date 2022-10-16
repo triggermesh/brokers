@@ -20,7 +20,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/broker"
 	pkgcmd "github.com/triggermesh/brokers/pkg/broker/cmd"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 type Status string
@@ -124,7 +124,7 @@ func (r *BrokerTestRunner) GetLogger() *zap.Logger {
 
 func (r *BrokerTestRunner) CleanUp() {
 	for n, b := range r.brokers {
-		err := os.Remove(b.Globals.ConfigPath)
+		err := os.Remove(b.Globals.BrokerConfigPath)
 		require.NoErrorf(r.t, err, "Failed to remove temporary configuration file for broker %s", n)
 	}
 }
@@ -141,9 +141,9 @@ func (r *BrokerTestRunner) AddBroker(name string, port int, backend backend.Inte
 	observedLogger := zap.New(r.zapcore)
 
 	g := &pkgcmd.Globals{
-		Logger:     observedLogger.Sugar(),
-		Port:       port,
-		ConfigPath: cfgfile.Name(),
+		Logger:           observedLogger.Sugar(),
+		Port:             port,
+		BrokerConfigPath: cfgfile.Name(),
 	}
 
 	i, err := broker.NewInstance(g, backend)
@@ -203,14 +203,14 @@ func (r *BrokerTestRunner) StopBroker(name string) {
 	b.Cancel()
 }
 
-func (r *BrokerTestRunner) UpdateBrokerConfig(name string, cfg *config.Config) {
+func (r *BrokerTestRunner) UpdateBrokerConfig(name string, cfg *cfgbroker.Config) {
 	b, ok := r.brokers[name]
 	require.Truef(r.t, ok, "Broker %s does not exists", name)
 
 	cfgb, err := yaml.Marshal(cfg)
 	require.NoError(r.t, err, "Failed to create configuration for broker")
 
-	f, err := os.OpenFile(b.Globals.ConfigPath, os.O_RDWR, 0)
+	f, err := os.OpenFile(b.Globals.BrokerConfigPath, os.O_RDWR, 0)
 	require.NoError(r.t, err, "Failed to open configuration file for broker")
 
 	defer func() {

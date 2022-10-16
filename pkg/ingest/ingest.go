@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 type CloudEventHandler func(context.Context, *cloudevents.Event) error
@@ -113,7 +113,7 @@ func (i *Instance) Start(ctx context.Context) error {
 	return srv.Shutdown(ctx)
 }
 
-func (i *Instance) UpdateFromConfig(c *config.Config) {
+func (i *Instance) UpdateFromConfig(c *cfgbroker.Config) {
 	i.logger.Info("Ingest Server UpdateFromConfig ...")
 }
 

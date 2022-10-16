@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
-	"github.com/triggermesh/brokers/pkg/config"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 	"github.com/triggermesh/brokers/test/e2e/lib"
 	"go.uber.org/zap"
 )
@@ -62,10 +62,10 @@ func TestRedisBroker(t *testing.T) {
 	consumer := lib.NewSimpleConsumer(9090)
 	runner.AddConsumer("consumer", consumer)
 
-	cfg := &config.Config{
-		Triggers: map[string]config.Trigger{
+	cfg := &cfgbroker.Config{
+		Triggers: map[string]cfgbroker.Trigger{
 			"test1": {
-				Target: config.Target{
+				Target: cfgbroker.Target{
 					URL: consumer.GetConsumerEndPoint(),
 				},
 			},
