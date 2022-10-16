@@ -62,7 +62,7 @@ docker run -d -v $PWD/.local/data:/data \
 Launch the broker providing parameters for the backing server.
 
 ```console
-go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --config-path ".local/config.yaml"
+go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --broker-config-path ".local/config.yaml"
 ```
 
 Alternatively environment variables could be used.
@@ -74,7 +74,7 @@ CONFIG_PATH=.local/config.yaml REDIS_ADDRESS=0.0.0.0:6379 go run ./cmd/redis-bro
 ## Memory
 
 ```console
-go run ./cmd/memory-broker start --memory.buffer-size 100 --memory.produce-timeout 1s --config-path ".local/config.yaml"
+go run ./cmd/memory-broker start --memory.buffer-size 100 --memory.produce-timeout 1s --broker-config-path ".local/config.yaml"
 ```
 
 Alternatively environment variables could be used.
@@ -88,6 +88,23 @@ CONFIG_PATH=.local/config.yaml MEMORY_BUFFER_SIZE=100 MEMORY_PRODUCE_TIMEOUT=1s 
 ```console
 docker build -t my-repo/redis-broker:my-version .
 docker push my-repo/redis-broker:my-version
+```
+
+## Observability
+
+The `observability-config-path` flag allows you to customize observability settings.
+
+```console
+go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" \
+  --broker-config-path .local/broker-config.yaml \
+  --observability-config-path .local/observability-config.yaml
+```
+
+The file (WIP) contains a `logging` element where a zap configuration should be located. Updating the file will update the logging level.
+
+```yaml
+logging:
+  level: info
 ```
 
 ## Generate License
