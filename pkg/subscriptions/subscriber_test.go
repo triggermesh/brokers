@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap/zaptest"
-
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cetest "github.com/cloudevents/sdk-go/v2/client/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
+
 	"github.com/triggermesh/brokers/pkg/backend/impl/memory"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 	"github.com/triggermesh/brokers/test/lib"
@@ -170,7 +171,8 @@ func TestSubscriberFilter(t *testing.T) {
 				logger:    logger,
 			}
 
-			s.updateTrigger(tc.trigger)
+			err := s.updateTrigger(tc.trigger)
+			require.NoError(t, err, "Could not set trigger for subscription")
 			for _, ev := range tc.events {
 				s.dispatchCloudEvent(&ev)
 			}

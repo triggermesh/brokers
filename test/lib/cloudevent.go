@@ -48,6 +48,6 @@ func CloudEventWithSourceOption(s string) CloudEventOption {
 
 func CloudEventWithExtensionOption(key, value string) CloudEventOption {
 	return func(e *cloudevents.Event) {
-		e.Context.SetExtension(key, value)
+		e.SetExtension(key, value)
 	}
 }

@@ -21,7 +21,7 @@ require (
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211221011931-643d94fcab96 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/cloudevents/sdk-go/sql/v2 v2.8.0
+	github.com/cloudevents/sdk-go/sql/v2 v2.8.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-logr/logr v1.2.2 // indirect
