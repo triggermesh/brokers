@@ -15,13 +15,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
 	"github.com/triggermesh/brokers/pkg/backend/impl/redis"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
-	"github.com/triggermesh/brokers/test/e2e/lib"
-	"go.uber.org/zap"
+	"github.com/triggermesh/brokers/test/e2e"
+	"github.com/triggermesh/brokers/test/lib"
 )
 
-var runner *lib.BrokerTestRunner
+var runner *e2e.BrokerTestRunner
 
 func TestMain(m *testing.M) {
 	InitializeRedisFlags()
@@ -43,7 +45,7 @@ func TestMain(m *testing.M) {
 func TestRedisBroker(t *testing.T) {
 	ctx := context.Background()
 
-	runner = lib.NewBrokerTestRunner(ctx, t)
+	runner = e2e.NewBrokerTestRunner(ctx, t)
 	defer runner.CleanUp()
 
 	// TODO customize to use non local brokers, this
@@ -78,9 +80,9 @@ func TestRedisBroker(t *testing.T) {
 
 	// Make sure configuration was applied
 	ok := runner.WaitForLogEntry(2*time.Second,
-		lib.LogFilterWithLevel(zap.InfoLevel),
-		lib.LogFilterWithMessage("Subscription for trigger updated"),
-		lib.LogFilterWithField(zap.String("name", "test1")))
+		e2e.LogFilterWithLevel(zap.InfoLevel),
+		e2e.LogFilterWithMessage("Subscription for trigger updated"),
+		e2e.LogFilterWithField(zap.String("name", "test1")))
 	require.True(t, ok, "Timed out waiting for log condition on trigger configuration")
 
 	// After configuration is applied, produce an event that should be

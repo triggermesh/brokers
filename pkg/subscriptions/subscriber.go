@@ -12,7 +12,6 @@ import (
 	"github.com/rickb777/date/period"
 	"go.uber.org/zap"
 
-	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/eventing/pkg/eventfilter"
 	"knative.dev/eventing/pkg/eventfilter/subscriptionsapi"
 	"knative.dev/pkg/logging"
@@ -151,7 +150,7 @@ func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {
 	return false
 }
 
-func materializeFiltersList(ctx context.Context, filters []eventingv1.SubscriptionsAPIFilter) []eventfilter.Filter {
+func materializeFiltersList(ctx context.Context, filters []cfgbroker.Filter) []eventfilter.Filter {
 	materializedFilters := make([]eventfilter.Filter, 0, len(filters))
 	for _, f := range filters {
 		f := materializeSubscriptionsAPIFilter(ctx, f)
@@ -164,7 +163,7 @@ func materializeFiltersList(ctx context.Context, filters []eventingv1.Subscripti
 	return materializedFilters
 }
 
-func materializeSubscriptionsAPIFilter(ctx context.Context, filter eventingv1.SubscriptionsAPIFilter) eventfilter.Filter {
+func materializeSubscriptionsAPIFilter(ctx context.Context, filter cfgbroker.Filter) eventfilter.Filter {
 	var materializedFilter eventfilter.Filter
 	var err error
 	switch {
