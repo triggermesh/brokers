@@ -1,7 +1,7 @@
 // Copyright 2022 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package lib
+package e2e
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/broker"
 	pkgcmd "github.com/triggermesh/brokers/pkg/broker/cmd"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/test/lib"
 )
 
 type Status string
@@ -33,35 +34,6 @@ const (
 
 	EventInit = "init"
 )
-
-// type Action func(t *testing.T)
-
-// type ScheduleItem struct {
-// 	Name   string
-// 	On     Event
-// 	Do     Action
-// 	Status Status
-// }
-
-// type Schedule struct {
-// 	Items map[Event]ScheduleItem
-// }
-
-// func (s *Schedule) validate() error {
-// 	// Ensure there is an init
-// 	if _, ok := s.Items[EventInit]; !ok {
-// 		return errors.New("schedule needs an " + EventInit + "entry")
-// 	}
-
-// 	// Ensure that no schedule elements are unlinked
-
-// 	return nil
-// }
-
-// func (s *Schedule) Run(t *testing.T) {
-// 	err := s.validate()
-// 	require.NoError(t, err, "Schedule for test is not valid.")
-// }
 
 type RunnerComponentStatus string
 
@@ -79,7 +51,7 @@ type ManagedBroker struct {
 }
 
 type ManagedConsumer struct {
-	Consumer Consumer
+	Consumer lib.Consumer
 	Cancel   context.CancelFunc
 	Status   RunnerComponentStatus
 }
@@ -88,7 +60,7 @@ type BrokerTestRunner struct {
 	// globals   *pkgcmd.Globals
 
 	brokers   map[string]*ManagedBroker
-	producers map[string]Producer
+	producers map[string]lib.Producer
 	consumers map[string]*ManagedConsumer
 
 	t       *testing.T
@@ -107,7 +79,7 @@ func NewBrokerTestRunner(ctx context.Context, t *testing.T) *BrokerTestRunner {
 
 	return &BrokerTestRunner{
 		brokers:   make(map[string]*ManagedBroker),
-		producers: make(map[string]Producer),
+		producers: make(map[string]lib.Producer),
 		consumers: make(map[string]*ManagedConsumer),
 
 		mainCtx: ctx,
@@ -292,7 +264,7 @@ func (r *BrokerTestRunner) GetBrokerStatus(name string) RunnerComponentStatus {
 // Methods for consumer management
 // *****************************
 
-func (r *BrokerTestRunner) AddConsumer(name string, consumer Consumer) {
+func (r *BrokerTestRunner) AddConsumer(name string, consumer lib.Consumer) {
 	r.consumers[name] = &ManagedConsumer{
 		Consumer: consumer,
 	}
@@ -328,7 +300,7 @@ func (r *BrokerTestRunner) StopConsumer(name string) {
 // Methods for other components
 // *****************************
 
-func (r *BrokerTestRunner) AddProducer(name string, producer Producer) {
+func (r *BrokerTestRunner) AddProducer(name string, producer lib.Producer) {
 	r.producers[name] = producer
 }
 
