@@ -28,6 +28,12 @@ func NewCloudEvent(opts ...CloudEventOption) cloudevents.Event {
 	return event
 }
 
+func CloudEventWithIDOption(id string) CloudEventOption {
+	return func(e *cloudevents.Event) {
+		e.SetID(id)
+	}
+}
+
 func CloudEventWithTypeOption(t string) CloudEventOption {
 	return func(e *cloudevents.Event) {
 		e.SetType(t)
@@ -37,5 +43,11 @@ func CloudEventWithTypeOption(t string) CloudEventOption {
 func CloudEventWithSourceOption(s string) CloudEventOption {
 	return func(e *cloudevents.Event) {
 		e.SetSource(s)
+	}
+}
+
+func CloudEventWithExtensionOption(key, value string) CloudEventOption {
+	return func(e *cloudevents.Event) {
+		e.Context.SetExtension(key, value)
 	}
 }

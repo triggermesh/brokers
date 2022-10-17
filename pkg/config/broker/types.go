@@ -79,11 +79,6 @@ func (i *Target) Validate(ctx context.Context) *apis.FieldError {
 }
 
 type Filter struct {
-	NestedFilter     `json:",inline"`
-	ExpressionFilter `json:",inline"`
-}
-
-type NestedFilter struct {
 	// All evaluates to true if all the nested expressions evaluate to true.
 	// It must contain at least one filter expression.
 	//
@@ -100,9 +95,7 @@ type NestedFilter struct {
 	//
 	// +optional
 	Not *Filter `json:"not,omitempty"`
-}
 
-type ExpressionFilter struct {
 	// Exact evaluates to true if the value of the matching CloudEvents
 	// attribute matches exactly the String value specified (case-sensitive).
 	// Exact must contain exactly one property, where the key is the name of the
@@ -132,11 +125,6 @@ type ExpressionFilter struct {
 	//
 	// +optional
 	Suffix map[string]string `json:"suffix,omitempty"`
-
-	// CESQL is a CloudEvents SQL expression that will be evaluated to true or false against each CloudEvent.
-	//
-	// +optional
-	CESQL string `json:"cesql,omitempty"`
 }
 
 type Trigger struct {

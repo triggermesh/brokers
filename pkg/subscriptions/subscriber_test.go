@@ -18,16 +18,136 @@ import (
 	"github.com/triggermesh/brokers/test/lib"
 )
 
-func TestSubscriber(t *testing.T) {
+var (
+	// Each element must have an unique ID
+	eventPool = []cloudevents.Event{
+		lib.NewCloudEvent(
+			lib.CloudEventWithIDOption("t1s1"),
+			lib.CloudEventWithTypeOption("type1"),
+			lib.CloudEventWithSourceOption("source1")),
+		lib.NewCloudEvent(
+			lib.CloudEventWithIDOption("t1s1ex2"),
+			lib.CloudEventWithTypeOption("type1"),
+			lib.CloudEventWithSourceOption("source1"),
+			lib.CloudEventWithExtensionOption("ext2", "val2")),
+		lib.NewCloudEvent(
+			lib.CloudEventWithIDOption("t2s1ex1"),
+			lib.CloudEventWithTypeOption("type2"),
+			lib.CloudEventWithSourceOption("source1"),
+			lib.CloudEventWithExtensionOption("ext1", "val1")),
+		lib.NewCloudEvent(
+			lib.CloudEventWithIDOption("t2s2ex1"),
+			lib.CloudEventWithTypeOption("type2"),
+			lib.CloudEventWithSourceOption("source2"),
+			lib.CloudEventWithExtensionOption("ext1", "val1")),
+		lib.NewCloudEvent(
+			lib.CloudEventWithIDOption("t2s2ex2"),
+			lib.CloudEventWithTypeOption("type2"),
+			lib.CloudEventWithSourceOption("source2"),
+			lib.CloudEventWithExtensionOption("ext2", "val2")),
+	}
+)
+
+func TestSubscriberFilter(t *testing.T) {
 	testCases := map[string]struct {
-		trigger               cfgbroker.Trigger
-		event                 cloudevents.Event
-		expectedDispatchCount int
+		trigger     cfgbroker.Trigger
+		events      []cloudevents.Event
+		expectedIds []string
 	}{
-		"simple": {
-			trigger:               cfgbroker.Trigger{},
-			event:                 lib.NewCloudEvent(),
-			expectedDispatchCount: 1,
+		"no filter": {
+			trigger:     cfgbroker.Trigger{},
+			events:      eventPool,
+			expectedIds: []string{"t1s1", "t1s1ex2", "t2s1ex1", "t2s2ex1", "t2s2ex2"},
+		},
+
+		"exact type": {
+			trigger: cfgbroker.Trigger{
+				Filters: []cfgbroker.Filter{
+					{
+						Exact: map[string]string{
+							"type": "type1",
+						},
+					},
+				},
+			},
+			events:      eventPool,
+			expectedIds: []string{"t1s1", "t1s1ex2"},
+		},
+
+		"exact extension": {
+			trigger: cfgbroker.Trigger{
+				Filters: []cfgbroker.Filter{
+					{
+						Prefix: map[string]string{
+							"ext2": "val",
+						},
+					},
+				},
+			},
+			events:      eventPool,
+			expectedIds: []string{"t1s1ex2", "t2s2ex2"},
+		},
+
+		"suffix source": {
+			trigger: cfgbroker.Trigger{
+				Filters: []cfgbroker.Filter{
+					{
+						Suffix: map[string]string{
+							"source": "2",
+						},
+					},
+				},
+			},
+			events:      eventPool,
+			expectedIds: []string{"t2s2ex1", "t2s2ex2"},
+		},
+
+		"all and not": {
+			trigger: cfgbroker.Trigger{
+				Filters: []cfgbroker.Filter{
+					{
+						All: []cfgbroker.Filter{
+							{
+								Exact: map[string]string{
+									"source": "source1",
+								},
+							}, {
+								Not: &cfgbroker.Filter{
+									Exact: map[string]string{
+										"type": "type1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			events:      eventPool,
+			expectedIds: []string{"t2s1ex1"},
+		},
+
+		"any and not prefix": {
+			trigger: cfgbroker.Trigger{
+				Filters: []cfgbroker.Filter{
+					{
+						Any: []cfgbroker.Filter{
+							{
+								Exact: map[string]string{
+									"source": "source1",
+								},
+							}, {
+								Not: &cfgbroker.Filter{
+									Prefix: map[string]string{
+										"ext2": "va",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			events:      eventPool,
+			expectedIds: []string{"t1s1", "t1s1ex2", "t2s1ex1", "t2s2ex1"},
 		},
 	}
 
@@ -41,7 +161,7 @@ func TestSubscriber(t *testing.T) {
 				ProduceTimeout: 10 * time.Second,
 			}, logger)
 
-			client, rcv := cetest.NewMockRequesterClient(t, 1, testReceiver)
+			client, rcv := cetest.NewMockRequesterClient(t, len(tc.events), testReceiver)
 			s := subscriber{
 				backend:   b,
 				name:      "test-subscriber",
@@ -51,20 +171,35 @@ func TestSubscriber(t *testing.T) {
 			}
 
 			s.updateTrigger(tc.trigger)
-			s.dispatchCloudEvent(&tc.event)
+			for _, ev := range tc.events {
+				s.dispatchCloudEvent(&ev)
+			}
 
-			count := 0
 			exitLoop := false
+			rcvEvents := []cloudevents.Event{}
 			for !exitLoop {
 				select {
-				case <-rcv:
-					count++
+				case e := <-rcv:
+					rcvEvents = append(rcvEvents, e)
 				case <-time.After(100 * time.Millisecond):
 					exitLoop = true
 				}
 			}
 
-			assert.Equal(t, tc.expectedDispatchCount, count, "Unexpected number of received elements")
+			assert.Equal(t, len(tc.expectedIds), len(rcvEvents), "Unexpected number of received elements")
+			for _, k := range tc.expectedIds {
+				found := false
+				for _, e := range rcvEvents {
+					if e.ID() == k {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					assert.Failf(t, "Expected event did not pass the filter", "Event ID %s not received", k)
+				}
+			}
 		})
 	}
 }
