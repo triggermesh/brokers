@@ -115,10 +115,8 @@ func hasMultipleDialects(filter *Filter) bool {
 			dialectFound = true
 		}
 	}
-	if filter.Not != nil {
-		if dialectFound {
-			return true
-		}
+	if filter.Not != nil && dialectFound {
+		return true
 	}
 
 	return false
