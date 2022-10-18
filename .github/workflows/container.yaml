@@ -38,14 +38,14 @@ jobs:
       with:
         file: ./cmd/redis-broker/Dockerfile
         push: true
-        tags: gcr.io/triggermesh/redis-broker:${{ github.sha }}
+        tags: gcr.io/triggermesh/redis-broker:${{ github.sha }},gcr.io/triggermesh/redis-broker:dev
 
     - name: Build and push memory-broker
       uses: docker/build-push-action@v3
       with:
         file: ./cmd/memory-broker/Dockerfile
         push: true
-        tags: gcr.io/triggermesh/memory-broker:${{ github.sha }}
+        tags: gcr.io/triggermesh/memory-broker:${{ github.sha }},gcr.io/triggermesh/memory-broker:dev
         labels: |
           created.by.githubworkflow.brokers
 
