@@ -71,6 +71,7 @@ func (s *redis) Info() *backend.Info {
 func (s *redis) Init(ctx context.Context) error {
 	s.client = goredis.NewClient(&goredis.Options{
 		Addr:     s.args.Address,
+		Username: s.args.Username,
 		Password: s.args.Password,
 		DB:       s.args.Database,
 	})
@@ -117,10 +118,17 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 		return fmt.Errorf("could not serialize CloudEvent: %w", err)
 	}
 
-	res := s.client.XAdd(ctx, &goredis.XAddArgs{
+	args := &goredis.XAddArgs{
 		Stream: s.args.Stream,
 		Values: map[string]interface{}{ceKey: b},
-	})
+	}
+
+	if s.args.StreamMaxLen != 0 {
+		args.MaxLen = int64(s.args.StreamMaxLen)
+		args.Approx = true
+	}
+
+	res := s.client.XAdd(ctx, args)
 
 	id, err := res.Result()
 	if err != nil {

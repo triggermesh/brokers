@@ -128,7 +128,7 @@ func (i *Instance) Start(inctx context.Context) error {
 	i.logger.Debug("Initializing backend")
 	err := i.backend.Init(ctx)
 	if err != nil {
-		return fmt.Errorf("could not initialize backend: %v", err)
+		return fmt.Errorf("could not initialize backend: %w", err)
 	}
 
 	// Start is a blocking function that will read messages from the backend
@@ -151,14 +151,14 @@ func (i *Instance) Start(inctx context.Context) error {
 	// since it cleanly exits when context is done.
 	i.logger.Debug("Starting broker configuration watcher")
 	if err = i.cw.Start(ctx); err != nil {
-		return fmt.Errorf("could not start broker configuration watcher: %v", err)
+		return fmt.Errorf("could not start broker configuration watcher: %w", err)
 	}
 
 	// Start the configuration watcher for observability.
 	if i.ocw != nil {
 		i.logger.Debug("Starting observability configuration watcher")
 		if err = i.ocw.Start(ctx); err != nil {
-			return fmt.Errorf("could not start observability configuration watcher: %v", err)
+			return fmt.Errorf("could not start observability configuration watcher: %w", err)
 		}
 	}
 
