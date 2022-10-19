@@ -51,9 +51,9 @@ Redis Broker needs a Redis backing server to perform pub/sub operations and stor
 # Create storage folder
 mkdir -p .local/data
 
-# Run Redis
+# Run Redis alternative
 docker run -d -v $PWD/.local/data:/data \
-    -e REDIS_ARGS="--appendonly yes" \
+    -e REDIS_ARGS="--appendonly yes --appendfsync always --rdbcompression yes" \
     --name redis-stack-server \
     -p 6379:6379 \
     redis/redis-stack-server:latest
@@ -62,13 +62,28 @@ docker run -d -v $PWD/.local/data:/data \
 Launch the broker providing parameters for the backing server.
 
 ```console
-go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --broker-config-path ".local/config.yaml"
+go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --broker-config-path ".local/broker-config.yaml"
 ```
 
 Alternatively environment variables could be used.
 
 ```console
 CONFIG_PATH=.local/config.yaml REDIS_ADDRESS=0.0.0.0:6379 go run ./cmd/redis-broker start
+```
+
+### Authenticated Redis
+
+When using an authenticated Redis instance, user and password can be informed via `redis.username` and `redis.password` arguments.
+
+```console
+go run ./cmd/redis-broker start --redis.username triggermesh1 --redis.password "7r\!663R" --redis.address "0.0.0.0:6379" --broker-config-path .local/broker-config.yaml
+```
+
+The broker uses a single Redis stream named `triggermesh` by default, that can be customized using `redis.stream` argument.
+The Redis user must be configured to use the `stream` group of commands on the stream key, plus using the `client` command with `id` subcomand for probes.
+
+```console
+ACL SETUSER triggermesh1 on >7r!663R +@stream +client|id ~triggermesh
 ```
 
 ## Memory

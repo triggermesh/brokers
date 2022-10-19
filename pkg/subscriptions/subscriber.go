@@ -52,7 +52,7 @@ func (s *subscriber) updateTrigger(trigger cfgbroker.Trigger) error {
 
 		delay, err := period.Parse(*trigger.Target.DeliveryOptions.BackoffDelay)
 		if err != nil {
-			return fmt.Errorf("could not apply trigger %q configuration due to backoff delay parsing: %v", s.name, err)
+			return fmt.Errorf("could not apply trigger %q configuration due to backoff delay parsing: %w", s.name, err)
 		}
 
 		switch *trigger.Target.DeliveryOptions.BackoffPolicy {
