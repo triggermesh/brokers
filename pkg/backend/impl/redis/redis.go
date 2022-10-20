@@ -246,5 +246,11 @@ func (s *redis) Probe(ctx context.Context) error {
 	res := s.client.ClientID(ctx)
 	id, err := res.Result()
 	s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
-	return fmt.Errorf("could not retrieve Redis client ID: %w", err)
+
+	if err == nil {
+		return nil
+	}
+
+	// Add some context since Redis client sometimes is not clear about what failed.
+	return fmt.Errorf("failed probing Redis, retrieving client ID: %w", err)
 }
