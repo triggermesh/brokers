@@ -81,14 +81,6 @@ go run ./cmd/redis-broker start \
   --broker-config-path ".local/broker-config.yaml"
 ```
 
-Alternatively environment variables could be used.
-
-```console
-CONFIG_PATH=.local/config.yaml \
-  REDIS_ADDRESS=0.0.0.0:6379 \
-  go run ./cmd/redis-broker start
-```
-
 ### Authenticated Redis
 
 When using an authenticated Redis instance, user and password can be informed via `redis.username` and `redis.password` arguments.
@@ -113,6 +105,20 @@ go run ./cmd/redis-broker start \
   --redis.tls-skip-verify \
   --redis.address "tls.self.signed.redis.server:25102" \
   --broker-config-path .local/broker-config.yaml
+```
+
+### Using Environment Variables
+
+Parameters for the broker can be set as environment variables.
+
+```console
+BROKER_CONFIG_PATH=.local/broker-config.yaml \
+REDIS_ADDRESS=tls.self.signed.redis.server:25102 \
+REDIS_USERNAME=triggermesh1 \
+REDIS_PASSWORD=7r\!663R \
+REDIS_TLS_ENABLED=true \
+REDIS_TLS_SKIP_VERIFY=true \
+go run ./cmd/redis-broker start
 ```
 
 ## Memory
