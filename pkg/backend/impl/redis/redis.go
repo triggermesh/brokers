@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -50,11 +51,11 @@ type redis struct {
 	// subscription list indexed by the name.
 	subs map[string]subscription
 	// Waitgroup that should be used to wait for subscribers
-	// before disconnecting
+	// before disconnecting.
 	wgSubs sync.WaitGroup
 
 	// disconnecting is set to avoid setting up new subscriptions
-	// when the ...
+	// when the broker is shutting down.
 	disconnecting bool
 
 	ctx    context.Context
@@ -69,11 +70,20 @@ func (s *redis) Info() *backend.Info {
 }
 
 func (s *redis) Init(ctx context.Context) error {
+	var tlscfg *tls.Config
+	if s.args.TLSEnabled {
+		tlscfg = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: s.args.TLSSkipVerify,
+		}
+	}
+
 	s.client = goredis.NewClient(&goredis.Options{
-		Addr:     s.args.Address,
-		Username: s.args.Username,
-		Password: s.args.Password,
-		DB:       s.args.Database,
+		Addr:      s.args.Address,
+		Username:  s.args.Username,
+		Password:  s.args.Password,
+		DB:        s.args.Database,
+		TLSConfig: tlscfg,
 	})
 
 	return s.Probe(ctx)
@@ -236,5 +246,5 @@ func (s *redis) Probe(ctx context.Context) error {
 	res := s.client.ClientID(ctx)
 	id, err := res.Result()
 	s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
-	return err
+	return fmt.Errorf("could not retrieve Redis client ID: %w", err)
 }

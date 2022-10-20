@@ -47,6 +47,20 @@ curl -v  http://localhost:8080/ \
 
 Redis Broker needs a Redis backing server to perform pub/sub operations and storage.
 
+The broker uses a single Redis stream named `triggermesh` by default, that can be customized using `redis.stream` argument.
+The Redis user must be configured to use the `stream` group of commands on the stream key, plus using the `client` command with `id` subcomand for probes.
+
+When using a single Redis backend, it is important to use a unique stream per broker to isolate messages.
+
+```console
+# In this example the broker will be configured with user triggermesh1
+# and stream name triggermeshstream
+
+ACL SETUSER triggermesh1 on >7r!663R +@stream +client|id ~triggermeshstream
+```
+
+### Non Authenticated Redis
+
 ```console
 # Create storage folder
 mkdir -p .local/data
@@ -62,13 +76,17 @@ docker run -d -v $PWD/.local/data:/data \
 Launch the broker providing parameters for the backing server.
 
 ```console
-go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" --broker-config-path ".local/broker-config.yaml"
+go run ./cmd/redis-broker start \
+  --redis.address "0.0.0.0:6379" \
+  --broker-config-path ".local/broker-config.yaml"
 ```
 
 Alternatively environment variables could be used.
 
 ```console
-CONFIG_PATH=.local/config.yaml REDIS_ADDRESS=0.0.0.0:6379 go run ./cmd/redis-broker start
+CONFIG_PATH=.local/config.yaml \
+  REDIS_ADDRESS=0.0.0.0:6379 \
+  go run ./cmd/redis-broker start
 ```
 
 ### Authenticated Redis
@@ -76,14 +94,25 @@ CONFIG_PATH=.local/config.yaml REDIS_ADDRESS=0.0.0.0:6379 go run ./cmd/redis-bro
 When using an authenticated Redis instance, user and password can be informed via `redis.username` and `redis.password` arguments.
 
 ```console
-go run ./cmd/redis-broker start --redis.username triggermesh1 --redis.password "7r\!663R" --redis.address "0.0.0.0:6379" --broker-config-path .local/broker-config.yaml
+go run ./cmd/redis-broker start \
+  --redis.username triggermesh1 \
+  --redis.password "7r\!663R" \
+  --redis.address "some.redis.server:25101" \
+  --broker-config-path .local/broker-config.yaml
 ```
 
-The broker uses a single Redis stream named `triggermesh` by default, that can be customized using `redis.stream` argument.
-The Redis user must be configured to use the `stream` group of commands on the stream key, plus using the `client` command with `id` subcomand for probes.
+### TLS Enabled Redis
+
+If the Redis instance is exposed using TLS, it must enabled at the broker config via `redis.tls-enabled` flag. When using self-signed certificates `redis.tls-skip-verify` must be used.
 
 ```console
-ACL SETUSER triggermesh1 on >7r!663R +@stream +client|id ~triggermesh
+go run ./cmd/redis-broker start \
+  --redis.username triggermesh1 \
+  --redis.password "7r\!663R" \
+  --redis.tls-enabled  \
+  --redis.tls-skip-verify \
+  --redis.address "tls.self.signed.redis.server:25102" \
+  --broker-config-path .local/broker-config.yaml
 ```
 
 ## Memory
