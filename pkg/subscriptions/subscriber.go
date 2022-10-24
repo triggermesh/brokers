@@ -44,7 +44,14 @@ func (s *subscriber) unsubscribe() {
 }
 
 func (s *subscriber) updateTrigger(trigger cfgbroker.Trigger) error {
-	ctx := cloudevents.ContextWithTarget(s.parentCtx, trigger.Target.URL)
+	// Target URL might be informed as empty to support temporary
+	// unavailability.
+	url := ""
+	if trigger.Target.URL != nil {
+		url = *trigger.Target.URL
+	}
+	ctx := cloudevents.ContextWithTarget(s.parentCtx, url)
+
 	if trigger.Target.DeliveryOptions != nil &&
 		trigger.Target.DeliveryOptions.Retry != nil &&
 		*trigger.Target.DeliveryOptions.Retry >= 1 &&
@@ -94,7 +101,9 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 }
 
 func (s *subscriber) dispatchCloudEventToTarget(target *cfgbroker.Target, event *cloudevents.Event) {
-	if s.send(s.ctx, event) {
+	// Only try to send if target URL has been configured.
+	url := cloudevents.TargetFromContext(s.ctx)
+	if url != nil && s.send(s.ctx, event) {
 		return
 	}
 
@@ -108,8 +117,11 @@ func (s *subscriber) dispatchCloudEventToTarget(target *cfgbroker.Target, event 
 
 	// Attribute "lost": true is set help log aggregators identify
 	// lost events by querying.
-	s.logger.Errorw(fmt.Sprintf("Event was lost while sending to %s",
-		cloudevents.TargetFromContext(s.ctx).String()), zap.Bool("lost", true),
+	msg := "Event was lost"
+	if url != nil {
+		msg += " while sending to " + url.String()
+	}
+	s.logger.Errorw(msg, zap.Bool("lost", true),
 		zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
 }
 

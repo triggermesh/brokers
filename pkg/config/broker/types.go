@@ -50,32 +50,46 @@ type DeliveryOptions struct {
 	DeadLetterURL *string `json:"deadLetterURL,omitempty"`
 }
 
+func (d *DeliveryOptions) Validate(ctx context.Context) (errs *apis.FieldError) {
+	if d == nil {
+		return
+	}
+
+	if d.DeadLetterURL != nil && *d.DeadLetterURL != "" {
+		if _, err := url.Parse(*d.DeadLetterURL); err != nil {
+			errs.Also(&apis.FieldError{
+				Message: "DLS URL cannot be parsed",
+				Paths:   []string{"deadLetterURL"},
+				Details: err.Error(),
+			})
+		}
+	}
+
+	return
+}
+
 type Target struct {
-	URL             string           `json:"url"`
+	URL             *string          `json:"url,,omitempty"`
 	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
 }
 
-func (i *Target) Validate(ctx context.Context) *apis.FieldError {
+func (i *Target) Validate(ctx context.Context) (errs *apis.FieldError) {
 	if i == nil {
-		return nil
+		return
 	}
 
-	if i.URL == "" {
-		return &apis.FieldError{
-			Message: "Target URL is not informed",
-			Paths:   []string{"url"},
+	if i.URL != nil && *i.URL != "" {
+		if _, err := url.Parse(*i.URL); err != nil {
+			errs = errs.Also(&apis.FieldError{
+				Message: "Target URL cannot be parsed",
+				Paths:   []string{"url"},
+				Details: err.Error(),
+			})
 		}
 	}
 
-	if _, err := url.Parse(i.URL); err != nil {
-		return &apis.FieldError{
-			Message: "Target URL cannot be parsed",
-			Paths:   []string{"url"},
-			Details: err.Error(),
-		}
-	}
-
-	return nil
+	errs.Also(i.DeliveryOptions.Validate(ctx))
+	return
 }
 
 type Filter struct {
@@ -128,8 +142,6 @@ type Filter struct {
 }
 
 type Trigger struct {
-	// Name    string                              `json:"name"`
-	// Filters []eventingv1.SubscriptionsAPIFilter `json:"filters,omitempty"`
 	Filters []Filter `json:"filters,omitempty"`
 	Target  Target   `json:"target"`
 }

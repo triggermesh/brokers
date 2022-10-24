@@ -171,6 +171,10 @@ func TestSubscriberFilter(t *testing.T) {
 				logger:    logger,
 			}
 
+			// Dummy URL to avoid skipping sending the event.
+			url := "http://test"
+			tc.trigger.Target.URL = &url
+
 			err := s.updateTrigger(tc.trigger)
 			require.NoError(t, err, "Could not set trigger for subscription")
 			for _, ev := range tc.events {
