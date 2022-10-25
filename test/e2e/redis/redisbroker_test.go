@@ -64,11 +64,12 @@ func TestRedisBroker(t *testing.T) {
 	consumer := lib.NewSimpleConsumer(9090)
 	runner.AddConsumer("consumer", consumer)
 
+	ep := consumer.GetConsumerEndPoint()
 	cfg := &cfgbroker.Config{
 		Triggers: map[string]cfgbroker.Trigger{
 			"test1": {
 				Target: cfgbroker.Target{
-					URL: consumer.GetConsumerEndPoint(),
+					URL: &ep,
 				},
 			},
 		},
