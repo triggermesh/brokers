@@ -57,7 +57,7 @@ func (d *DeliveryOptions) Validate(ctx context.Context) (errs *apis.FieldError) 
 
 	if d.DeadLetterURL != nil && *d.DeadLetterURL != "" {
 		if _, err := url.Parse(*d.DeadLetterURL); err != nil {
-			errs.Also(&apis.FieldError{
+			errs = errs.Also(&apis.FieldError{
 				Message: "DLS URL cannot be parsed",
 				Paths:   []string{"deadLetterURL"},
 				Details: err.Error(),
@@ -88,8 +88,7 @@ func (i *Target) Validate(ctx context.Context) (errs *apis.FieldError) {
 		}
 	}
 
-	errs.Also(i.DeliveryOptions.Validate(ctx))
-	return
+	return errs.Also(i.DeliveryOptions.Validate(ctx))
 }
 
 type Filter struct {
