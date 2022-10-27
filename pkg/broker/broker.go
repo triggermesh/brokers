@@ -17,7 +17,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
-	"github.com/triggermesh/brokers/pkg/common/kubernetes"
+	"github.com/triggermesh/brokers/pkg/common/kubernetes/controller"
 	cfgbwatcher "github.com/triggermesh/brokers/pkg/config/broker/watcher"
 	cfgowatcher "github.com/triggermesh/brokers/pkg/config/observability/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
@@ -37,8 +37,9 @@ type Instance struct {
 	backend      backend.Interface
 	ingest       *ingest.Instance
 	subscription *subscriptions.Manager
-	cw           *cfgbwatcher.Watcher
+	bcw          *cfgbwatcher.Watcher
 	ocw          *cfgowatcher.Watcher
+	km           *controller.Manager
 	status       Status
 
 	logger *zap.SugaredLogger
@@ -81,9 +82,9 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
-		cfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
+		bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error adding broker watcher for %q: %w", globals.ObservabilityConfigPath, err)
 		}
 
 		var ocfgw *cfgowatcher.Watcher
@@ -96,18 +97,31 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			globals.Logger.Debugw("Creating watcher for observability configuration", zap.String("file", obsCfgPath))
 			ocfgw, err = cfgowatcher.NewWatcher(cfw, obsCfgPath, globals.Logger.Named("ocgfwatch"))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error adding observability watcher for %q: %w", globals.ObservabilityConfigPath, err)
 			}
 
 			ocfgw.AddCallback(globals.UpdateLevel)
 		}
 
-		broker.cw = cfgw
+		broker.bcw = bcfgw
 		broker.ocw = ocfgw
 	}
 
 	if globals.NeedsKubernetesInformer() {
-		_, _ = kubernetes.NewManager(globals.Logger.Named("controller"))
+		km, err := controller.NewManager(globals.KubernetesNamespace, globals.Logger.Named("controller"))
+		if err != nil {
+			return nil, fmt.Errorf("error creating kubernetes controller manager: %w", err)
+		}
+
+		if globals.NeedsKubernetesBrokerSecret() {
+			km.AddSecretController(
+				globals.BrokerConfigKubernetesSecretName,
+				globals.BrokerConfigKubernetesSecretKey)
+		}
+
+		// km.AddConfigMapController()
+
+		broker.km = km
 	}
 
 	return broker, nil
@@ -150,19 +164,19 @@ func (i *Instance) Start(inctx context.Context) error {
 	})
 
 	// Setup broker config file watchers only if configured.
-	if i.cw != nil {
+	if i.bcw != nil {
 		// ConfigWatcher will callback reconfigurations for:
 		// - Ingest: if authentication parameters are updated.
 		// - Subscription manager: if triggers configurations changes.
 		i.logger.Debug("Adding config watcher callbacks")
-		i.cw.AddCallback(i.ingest.UpdateFromConfig)
-		i.cw.AddCallback(i.subscription.UpdateFromConfig)
+		i.bcw.AddCallback(i.ingest.UpdateFromConfig)
+		i.bcw.AddCallback(i.subscription.UpdateFromConfig)
 
 		// Start the configuration watcher for brokers.
 		// There is no need to add it to the wait group
 		// since it cleanly exits when context is done.
 		i.logger.Debug("Starting broker configuration watcher")
-		if err = i.cw.Start(ctx); err != nil {
+		if err = i.bcw.Start(ctx); err != nil {
 			return fmt.Errorf("could not start broker configuration watcher: %w", err)
 		}
 	}
@@ -176,6 +190,18 @@ func (i *Instance) Start(inctx context.Context) error {
 				return fmt.Errorf("could not start observability configuration watcher: %w", err)
 			}
 		}
+	}
+
+	// Start controller only if kubernetes informers are configured
+	if i.km != nil {
+
+		i.km.AddSecretCallback(i.ingest.UpdateFromConfig)
+		i.km.AddSecretCallback(i.subscription.UpdateFromConfig)
+
+		grp.Go(func() error {
+			err := i.km.Start(ctx)
+			return err
+		})
 	}
 
 	// Register producer function for received events at ingest.

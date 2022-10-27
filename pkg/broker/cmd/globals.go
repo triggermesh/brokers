@@ -18,6 +18,7 @@ type Globals struct {
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 
+	KubernetesNamespace                     string `help:"Namespace where the broker is running.." env:"KUBERNETES_NAMESPACE"`
 	BrokerConfigKubernetesSecretName        string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
 	BrokerConfigKubernetesSecretKey         string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
 	ObservabilityConfigKubernetesSecretName string `help:"Secret object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_SECRET_NAME"`
@@ -36,14 +37,30 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Broker configuration paht must be informed.")
 	}
 
-	if (s.BrokerConfigKubernetesSecretName != "" && s.BrokerConfigKubernetesSecretKey == "") ||
-		(s.BrokerConfigKubernetesSecretName == "" && s.BrokerConfigKubernetesSecretKey != "") {
+	kubeBroker := false
+	if s.BrokerConfigKubernetesSecretName != "" || s.BrokerConfigKubernetesSecretKey != "" {
+		kubeBroker = true
+	}
+
+	if kubeBroker && (s.BrokerConfigKubernetesSecretName == "" || s.BrokerConfigKubernetesSecretKey == "") {
 		msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
 	}
 
-	if (s.ObservabilityConfigKubernetesSecretName != "" && s.ObservabilityConfigKubernetesSecretKey == "") ||
-		(s.ObservabilityConfigKubernetesSecretName == "" && s.ObservabilityConfigKubernetesSecretKey != "") {
+	kubeObservability := false
+	if s.ObservabilityConfigKubernetesSecretName != "" || s.ObservabilityConfigKubernetesSecretKey != "" {
+		kubeObservability = true
+	}
+
+	if kubeObservability && (s.ObservabilityConfigKubernetesSecretName == "" || s.ObservabilityConfigKubernetesSecretKey == "") {
 		msg = append(msg, "Observability configuration for Kubernetes must inform both secret name and key.")
+	}
+
+	if (kubeBroker || kubeObservability) && s.KubernetesNamespace == "" {
+		msg = append(msg, "Kubernetes namespace must be informed.")
+	}
+
+	if !kubeBroker && !kubeObservability && kubeObservability && s.KubernetesNamespace != "" {
+		msg = append(msg, "Kubernetes namespace must not be informed when no Secrets/ConfigMaps are watched.")
 	}
 
 	if len(msg) != 0 {
@@ -117,6 +134,14 @@ func (s *Globals) NeedsFileWatcher() bool {
 	return s.BrokerConfigKubernetesSecretName == "" || s.ObservabilityConfigPath != ""
 }
 
+func (s *Globals) NeedsKubernetesBrokerSecret() bool {
+	return s.BrokerConfigKubernetesSecretName != "" && s.BrokerConfigKubernetesSecretKey != ""
+}
+
+func (s *Globals) NeedsKubernetesObservabilityConfigMap() bool {
+	return s.BrokerConfigKubernetesSecretName != "" && s.BrokerConfigKubernetesSecretKey != ""
+}
+
 func (s *Globals) NeedsKubernetesInformer() bool {
-	return s.BrokerConfigKubernetesSecretName != "" || s.ObservabilityConfigKubernetesSecretName != ""
+	return s.NeedsKubernetesBrokerSecret() || s.NeedsKubernetesObservabilityConfigMap()
 }
