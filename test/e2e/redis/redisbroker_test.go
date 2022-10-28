@@ -56,6 +56,9 @@ func TestRedisBroker(t *testing.T) {
 		Stream:   Flags.RedisStream,
 	}
 	backend := redis.New(args, runner.GetLogger().Sugar().Named("redis"))
+	err := backend.Init(ctx)
+	assert.NoError(t, err, "Error initializing backend")
+
 	runner.AddBroker("main", 18080, backend)
 
 	producer := lib.NewSimpleProducer(runner.GetBrokerEndPoint("main"))
@@ -75,9 +78,15 @@ func TestRedisBroker(t *testing.T) {
 		},
 	}
 
-	runner.UpdateBrokerConfig("main", cfg)
-	runner.StartConsumer("consumer")
 	runner.StartBroker("main")
+
+	// TODO make sure broker has started by inspecting logs.
+	if runner != nil {
+		time.Sleep(5 * time.Second)
+	}
+	runner.UpdateBrokerConfig("main", cfg)
+
+	runner.StartConsumer("consumer")
 
 	// Make sure configuration was applied
 	ok := runner.WaitForLogEntry(2*time.Second,
@@ -89,7 +98,7 @@ func TestRedisBroker(t *testing.T) {
 	// After configuration is applied, produce an event that should be
 	// routed via configured triggers.
 	ev := lib.NewCloudEvent()
-	err := producer.Produce(ctx, ev)
+	err = producer.Produce(ctx, ev)
 	assert.NoError(t, err, "Error producing event")
 
 	// wait for event to be seen at consumer
