@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,7 +21,6 @@ type ConfigMapObservabilityCallback func(cfg *observability.Config)
 // reconcileObservabilityConfigMap reconciles the observability ConfigMap.
 type reconcileObservabilityConfigMap struct {
 	name string
-	key  string
 	cbs  []ConfigMapObservabilityCallback
 
 	client client.Client
@@ -36,7 +34,7 @@ func (r *reconcileObservabilityConfigMap) Reconcile(ctx context.Context, request
 	cm := &corev1.ConfigMap{}
 	err := r.client.Get(ctx, request.NamespacedName, cm)
 	if errors.IsNotFound(err) {
-		r.logger.Errorw("could not find ConfigMAp", zap.String("name", cm.Name))
+		r.logger.Errorw("could not find ConfigMap", zap.String("name", request.NamespacedName.String()))
 		return reconcile.Result{}, nil
 	}
 
@@ -45,20 +43,8 @@ func (r *reconcileObservabilityConfigMap) Reconcile(ctx context.Context, request
 	}
 
 	r.logger.Infow("Reconciling ConfigMap", zap.String("name", cm.Name))
-	content, ok := cm.Data[r.key]
-	if !ok {
-		r.logger.Errorw("empty ConfigMap", zap.String("name", cm.Name))
-		return reconcile.Result{}, nil
-	}
-
-	if len(content) == 0 {
-		// Discard file events that do not inform content.
-		r.logger.Debugw("Received ConfigMap with empty contents", zap.String("name", cm.Name))
-		return reconcile.Result{}, nil
-	}
-
-	cfg := &observability.Config{}
-	if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
+	cfg, err := observability.ParseFromMap(cm.Data)
+	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error parsing observability config from ConfigMap %q: %w", cm.Name, err)
 	}
 

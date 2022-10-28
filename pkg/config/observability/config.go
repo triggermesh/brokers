@@ -47,7 +47,11 @@ func Parse(content []byte) (*Config, error) {
 		return nil, fmt.Errorf("could not parse observability data into string map: %+w", err)
 	}
 
-	zc, err := zapConfigFromJSON(cfg[zapLoggerElement])
+	return ParseFromMap(cfg)
+}
+
+func ParseFromMap(content map[string]string) (*Config, error) {
+	zc, err := zapConfigFromJSON(content[zapLoggerElement])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse zap logger config: %+w", err)
 	}

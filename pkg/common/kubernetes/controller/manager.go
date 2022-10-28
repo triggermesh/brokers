@@ -52,7 +52,7 @@ func NewManager(namespace string, logger *zap.SugaredLogger) (*Manager, error) {
 }
 
 func (m *Manager) AddSecretControllerForBrokerConfig(name, key string) error {
-	m.logger.Info("Setting up Secret controller for broker config")
+	m.logger.Infow("Setting up Secret controller for broker config", zap.String("name", name), zap.String("key", key))
 	m.rs = &reconcileBrokerConfigSecret{
 		name:   name,
 		key:    key,
@@ -82,17 +82,16 @@ func (m *Manager) AddSecretCallbackForBrokerConfig(cb SecretBrokerConfigCallback
 	m.rs.cbs = append(m.rs.cbs, cb)
 }
 
-func (m *Manager) AddConfigMapControllerForObservability(name, key string) error {
+func (m *Manager) AddConfigMapControllerForObservability(name string) error {
 	m.logger.Info("Setting up ConfigMap controller for observability")
 	m.rcm = &reconcileObservabilityConfigMap{
 		name:   name,
-		key:    key,
 		client: m.manager.GetClient(),
 		logger: m.logger,
 	}
 
 	c, err := crctrl.New("observability-configmap-controller", m.manager, crctrl.Options{
-		Reconciler: m.rs,
+		Reconciler: m.rcm,
 	})
 
 	if err != nil {
@@ -107,6 +106,10 @@ func (m *Manager) AddConfigMapControllerForObservability(name, key string) error
 	}
 
 	return nil
+}
+
+func (m *Manager) AddConfigMapCallbackForObservabilityConfig(cb ConfigMapObservabilityCallback) {
+	m.rcm.cbs = append(m.rcm.cbs, cb)
 }
 
 func (m *Manager) Start(ctx context.Context) error {

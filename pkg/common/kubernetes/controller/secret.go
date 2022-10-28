@@ -33,7 +33,7 @@ func (r *reconcileBrokerConfigSecret) Reconcile(ctx context.Context, request rec
 	s := &corev1.Secret{}
 	err := r.client.Get(ctx, request.NamespacedName, s)
 	if errors.IsNotFound(err) {
-		r.logger.Errorw("could not find Secret", zap.String("name", s.Name))
+		r.logger.Errorw("could not find Secret", zap.String("name", request.NamespacedName.String()))
 		return reconcile.Result{}, nil
 	}
 

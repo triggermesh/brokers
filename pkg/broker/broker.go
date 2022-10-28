@@ -121,9 +121,14 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			km.AddSecretControllerForBrokerConfig(
 				globals.BrokerConfigKubernetesSecretName,
 				globals.BrokerConfigKubernetesSecretKey)
+			km.AddSecretCallbackForBrokerConfig(i.UpdateFromConfig)
+			km.AddSecretCallbackForBrokerConfig(sm.UpdateFromConfig)
 		}
 
-		// km.AddConfigMapController()
+		if globals.NeedsKubernetesObservabilityConfigMap() {
+			km.AddConfigMapControllerForObservability(globals.ObservabilityConfigKubernetesConfigMapName)
+			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLevel)
+		}
 
 		broker.km = km
 	}
@@ -195,10 +200,6 @@ func (i *Instance) Start(inctx context.Context) error {
 
 	// Start controller only if kubernetes informers are configured
 	if i.km != nil {
-
-		i.km.AddSecretCallbackForBrokerConfig(i.ingest.UpdateFromConfig)
-		i.km.AddSecretCallbackForBrokerConfig(i.subscription.UpdateFromConfig)
-
 		grp.Go(func() error {
 			err := i.km.Start(ctx)
 			return err

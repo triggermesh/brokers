@@ -150,12 +150,52 @@ go run ./cmd/redis-broker start --redis.address "0.0.0.0:6379" \
   --observability-config-path .local/observability-config.yaml
 ```
 
-The file (WIP) contains a `logging` element where a zap configuration should be located. Updating the file will update the logging level.
+The file contains a `zap-logger-config` element where a zap configuration should be located. Updating the file will update the logging level.
 
 ```yaml
-logging:
-  level: info
+zap-logger-config: |
+  {
+    "level": "info",
+    "development": false,
+    "outputPaths": ["stdout"],
+    "errorOutputPaths": ["stderr"],
+    "encoding": "json",
+    "encoderConfig": {
+      "timeKey": "timestamp",
+      "levelKey": "severity",
+      "nameKey": "logger",
+      "callerKey": "caller",
+      "messageKey": "message",
+      "stacktraceKey": "stacktrace",
+      "lineEnding": "",
+      "levelEncoder": "",
+      "timeEncoder": "iso8601",
+      "durationEncoder": "",
+      "callerEncoder": ""
+    }
+  }
 ```
+
+## Parameters
+
+### Arguments
+
+Prefixes `redis.` and `memory.` apply only to their respective broker binaries.
+
+Name | Default | Information
+--- | --- | ---
+redis.address |  |
+broker-config-path | /etc/triggermesh/broker.conf | Path to the file that contains the broker's configuration.
+### Environment Variables
+
+Name                                  | Default | Information
+---                                   | --- | ---
+REDIS_ADDRESS                         |  | Redis backend address, including port.
+KUBERNETES_NAMESPACE                  |  | Kubernetes namespace where the broker runs.
+BROKER_CONFIG_KUBERNETES_SECRET_NAME  | | Kubernetes Secret name for the broker configuration.
+BROKER_CONFIG_KUBERNETES_SECRET_KEY   | | Kubernetes Secret key for the broker configuration.
+OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME | | Kubernetes ConfigMap name for the observability configuration.
+
 
 ## Generate License
 

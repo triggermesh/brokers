@@ -8,9 +8,17 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
+
+	"go.uber.org/zap"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/triggermesh/brokers/pkg/config/observability"
-	"go.uber.org/zap"
 )
 
 type Globals struct {
@@ -18,11 +26,10 @@ type Globals struct {
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 
-	KubernetesNamespace                     string `help:"Namespace where the broker is running.." env:"KUBERNETES_NAMESPACE"`
-	BrokerConfigKubernetesSecretName        string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
-	BrokerConfigKubernetesSecretKey         string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
-	ObservabilityConfigKubernetesSecretName string `help:"Secret object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_SECRET_NAME"`
-	ObservabilityConfigKubernetesSecretKey  string `help:"Secret object key that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_SECRET_KEY"`
+	KubernetesNamespace                        string `help:"Namespace where the broker is running.." env:"KUBERNETES_NAMESPACE"`
+	BrokerConfigKubernetesSecretName           string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
+	BrokerConfigKubernetesSecretKey            string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
+	ObservabilityConfigKubernetesConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME"`
 
 	Context  context.Context    `kong:"-"`
 	Logger   *zap.SugaredLogger `kong:"-"`
@@ -34,7 +41,7 @@ func (s *Globals) Validate() error {
 
 	if s.BrokerConfigPath == "" &&
 		(s.BrokerConfigKubernetesSecretName == "" || s.BrokerConfigKubernetesSecretKey == "") {
-		msg = append(msg, "Broker configuration paht must be informed.")
+		msg = append(msg, "Broker configuration path or ConfigMap must be informed.")
 	}
 
 	kubeBroker := false
@@ -47,19 +54,19 @@ func (s *Globals) Validate() error {
 	}
 
 	kubeObservability := false
-	if s.ObservabilityConfigKubernetesSecretName != "" || s.ObservabilityConfigKubernetesSecretKey != "" {
+	if s.ObservabilityConfigKubernetesConfigMapName != "" {
 		kubeObservability = true
 	}
 
-	if kubeObservability && (s.ObservabilityConfigKubernetesSecretName == "" || s.ObservabilityConfigKubernetesSecretKey == "") {
-		msg = append(msg, "Observability configuration for Kubernetes must inform both secret name and key.")
+	if kubeObservability && s.ObservabilityConfigPath != "" {
+		msg = append(msg, "Observability config must use either a file path or a ConfigMap.")
 	}
 
 	if (kubeBroker || kubeObservability) && s.KubernetesNamespace == "" {
 		msg = append(msg, "Kubernetes namespace must be informed.")
 	}
 
-	if !kubeBroker && !kubeObservability && kubeObservability && s.KubernetesNamespace != "" {
+	if !kubeBroker && !kubeObservability && s.KubernetesNamespace != "" {
 		msg = append(msg, "Kubernetes namespace must not be informed when no Secrets/ConfigMaps are watched.")
 	}
 
@@ -76,19 +83,52 @@ func (s *Globals) Initialize() error {
 	var err error
 	defaultConfigApplied := false
 
-	// TODO when at kubernetes, read from configmap
-	if s.ObservabilityConfigPath == "" {
-		defaultConfigApplied = true
-		cfg = observability.DefaultConfig()
-	} else {
+	switch {
+	case s.NeedsObservabilityConfigFileWatcher():
 		// Read before starting the watcher to use it with the
 		// start routines.
 		cfg, err = observability.ReadFromFile(s.ObservabilityConfigPath)
 		if err != nil || cfg.LoggerCfg == nil {
 			log.Printf("Could not appliying provided config: %v", err)
 			defaultConfigApplied = true
-			cfg = observability.DefaultConfig()
 		}
+
+	case s.NeedsKubernetesObservabilityConfigMap():
+		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return err
+		}
+
+		cm := &corev1.ConfigMap{}
+		var lastErr error
+
+		if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+			lastErr = kc.Get(s.Context, client.ObjectKey{
+				Namespace: s.KubernetesNamespace,
+				Name:      s.ObservabilityConfigKubernetesConfigMapName,
+			}, cm)
+
+			return lastErr == nil || apierrors.IsNotFound(lastErr), nil
+		}); err != nil {
+			log.Printf("Could not retrieve observability ConfigMap %q: %v",
+				s.ObservabilityConfigKubernetesConfigMapName, err)
+			defaultConfigApplied = true
+		}
+
+		cfg, err = observability.ParseFromMap(cm.Data)
+		if err != nil || cfg.LoggerCfg == nil {
+			log.Printf("Could not apply provided config from ConfigMap %q: %v",
+				s.ObservabilityConfigKubernetesConfigMapName, err)
+			defaultConfigApplied = true
+		}
+
+	default:
+		log.Print("Applying default configuration")
+		defaultConfigApplied = true
+	}
+
+	if defaultConfigApplied {
+		cfg = observability.DefaultConfig()
 	}
 
 	// Call build to perform validation of zap configuration.
