@@ -178,6 +178,8 @@ zap-logger-config: |
 
 ## Parameters
 
+// TODO INCOMPLETE SECTION
+
 ### Arguments
 
 Prefixes `redis.` and `memory.` apply only to their respective broker binaries.
@@ -186,6 +188,7 @@ Name | Default | Information
 --- | --- | ---
 redis.address |  |
 broker-config-path | /etc/triggermesh/broker.conf | Path to the file that contains the broker's configuration.
+
 ### Environment Variables
 
 Name                                  | Default | Information
