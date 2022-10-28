@@ -49,5 +49,9 @@ jobs:
         restore-keys: |
           ${{ github.job }}-${{ runner.os }}-go-
 
+    - name: Sleep for 10 seconds
+      run: sleep 10s
+      shell: bash
+
     - name: Launch e2e tests
       run: go test --count 1 ./test/e2e/... -tags e2e --redis-address redis:6379
