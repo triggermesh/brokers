@@ -18,11 +18,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
+
+type SecretBrokerConfigCallback func(*cfgbroker.Config)
 
 type Manager struct {
 	manager manager.Manager
-	rs      *reconcileSecret
+	rs      *reconcileBrokerConfigSecret
+	rcm     *reconcileObservabilityConfigMap
 
 	logger *zap.SugaredLogger
 }
@@ -46,35 +51,62 @@ func NewManager(namespace string, logger *zap.SugaredLogger) (*Manager, error) {
 	}, nil
 }
 
-func (m *Manager) AddSecretController(name, key string) error {
-	m.logger.Info("Setting up secrets controller")
-	m.rs = &reconcileSecret{
+func (m *Manager) AddSecretControllerForBrokerConfig(name, key string) error {
+	m.logger.Info("Setting up Secret controller for broker config")
+	m.rs = &reconcileBrokerConfigSecret{
 		name:   name,
 		key:    key,
 		client: m.manager.GetClient(),
 		logger: m.logger,
 	}
 
-	c, err := crctrl.New("secret-controller", m.manager, crctrl.Options{
+	c, err := crctrl.New("broker-config-secret-controller", m.manager, crctrl.Options{
 		Reconciler: m.rs,
 	})
 
 	if err != nil {
-		return fmt.Errorf("unable to set up secret controller: %w", err)
+		return fmt.Errorf("unable to set up Secret controller: %w", err)
 	}
 	if err := c.Watch(
 		&source.Kind{Type: &corev1.Secret{}},
 		&handler.EnqueueRequestForObject{},
 		predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetName() == name }),
 	); err != nil {
-		return fmt.Errorf("unable to set watch for secrets: %w", err)
+		return fmt.Errorf("unable to set watch for Secret: %w", err)
 	}
 
 	return nil
 }
 
-func (m *Manager) AddSecretCallback(cb SecretConfigCallback) {
+func (m *Manager) AddSecretCallbackForBrokerConfig(cb SecretBrokerConfigCallback) {
 	m.rs.cbs = append(m.rs.cbs, cb)
+}
+
+func (m *Manager) AddConfigMapControllerForObservability(name, key string) error {
+	m.logger.Info("Setting up ConfigMap controller for observability")
+	m.rcm = &reconcileObservabilityConfigMap{
+		name:   name,
+		key:    key,
+		client: m.manager.GetClient(),
+		logger: m.logger,
+	}
+
+	c, err := crctrl.New("observability-configmap-controller", m.manager, crctrl.Options{
+		Reconciler: m.rs,
+	})
+
+	if err != nil {
+		return fmt.Errorf("unable to set up ConfigMap controller: %w", err)
+	}
+	if err := c.Watch(
+		&source.Kind{Type: &corev1.ConfigMap{}},
+		&handler.EnqueueRequestForObject{},
+		predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetName() == name }),
+	); err != nil {
+		return fmt.Errorf("unable to set watch for ConfigMaps: %w", err)
+	}
+
+	return nil
 }
 
 func (m *Manager) Start(ctx context.Context) error {

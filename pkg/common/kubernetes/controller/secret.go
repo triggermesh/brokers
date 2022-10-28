@@ -16,22 +16,20 @@ import (
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
-type SecretConfigCallback func(*cfgbroker.Config)
-
-// reconcileSecret reconciles the secret.
-type reconcileSecret struct {
+// reconcileSecret reconciles the Secret.
+type reconcileBrokerConfigSecret struct {
 	name string
 	key  string
-	cbs  []SecretConfigCallback
+	cbs  []SecretBrokerConfigCallback
 
 	client client.Client
 	logger *zap.SugaredLogger
 }
 
 // Implement reconcile.Reconciler so the controller can reconcile objects
-var _ reconcile.Reconciler = &reconcileSecret{}
+var _ reconcile.Reconciler = &reconcileBrokerConfigSecret{}
 
-func (r *reconcileSecret) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *reconcileBrokerConfigSecret) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	s := &corev1.Secret{}
 	err := r.client.Get(ctx, request.NamespacedName, s)
 	if errors.IsNotFound(err) {

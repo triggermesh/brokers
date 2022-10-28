@@ -81,30 +81,34 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
 		}
 
-		globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
-		bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
-		if err != nil {
-			return nil, fmt.Errorf("error adding broker watcher for %q: %w", globals.ObservabilityConfigPath, err)
-		}
-
-		var ocfgw *cfgowatcher.Watcher
-		if globals.ObservabilityConfigPath != "" {
-			obsCfgPath, err := filepath.Abs(globals.ObservabilityConfigPath)
+		if globals.NeedsBrokerConfigFileWatcher() {
+			globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
+			bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
 			if err != nil {
-				return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.ObservabilityConfigPath, err)
+				return nil, fmt.Errorf("error adding broker watcher for %q: %w", globals.ObservabilityConfigPath, err)
 			}
 
-			globals.Logger.Debugw("Creating watcher for observability configuration", zap.String("file", obsCfgPath))
-			ocfgw, err = cfgowatcher.NewWatcher(cfw, obsCfgPath, globals.Logger.Named("ocgfwatch"))
-			if err != nil {
-				return nil, fmt.Errorf("error adding observability watcher for %q: %w", globals.ObservabilityConfigPath, err)
-			}
-
-			ocfgw.AddCallback(globals.UpdateLevel)
+			broker.bcw = bcfgw
 		}
 
-		broker.bcw = bcfgw
-		broker.ocw = ocfgw
+		if globals.NeedsObservabilityConfigFileWatcher() {
+			var ocfgw *cfgowatcher.Watcher
+			if globals.ObservabilityConfigPath != "" {
+				obsCfgPath, err := filepath.Abs(globals.ObservabilityConfigPath)
+				if err != nil {
+					return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.ObservabilityConfigPath, err)
+				}
+
+				globals.Logger.Debugw("Creating watcher for observability configuration", zap.String("file", obsCfgPath))
+				ocfgw, err = cfgowatcher.NewWatcher(cfw, obsCfgPath, globals.Logger.Named("ocgfwatch"))
+				if err != nil {
+					return nil, fmt.Errorf("error adding observability watcher for %q: %w", globals.ObservabilityConfigPath, err)
+				}
+
+				ocfgw.AddCallback(globals.UpdateLevel)
+				broker.ocw = ocfgw
+			}
+		}
 	}
 
 	if globals.NeedsKubernetesInformer() {
@@ -114,7 +118,7 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		if globals.NeedsKubernetesBrokerSecret() {
-			km.AddSecretController(
+			km.AddSecretControllerForBrokerConfig(
 				globals.BrokerConfigKubernetesSecretName,
 				globals.BrokerConfigKubernetesSecretKey)
 		}
@@ -183,20 +187,17 @@ func (i *Instance) Start(inctx context.Context) error {
 
 	// Setup observability config file watchers only if configured.
 	if i.ocw != nil {
-		// Start the configuration watcher for observability.
-		if i.ocw != nil {
-			i.logger.Debug("Starting observability configuration watcher")
-			if err = i.ocw.Start(ctx); err != nil {
-				return fmt.Errorf("could not start observability configuration watcher: %w", err)
-			}
+		i.logger.Debug("Starting observability configuration watcher")
+		if err = i.ocw.Start(ctx); err != nil {
+			return fmt.Errorf("could not start observability configuration watcher: %w", err)
 		}
 	}
 
 	// Start controller only if kubernetes informers are configured
 	if i.km != nil {
 
-		i.km.AddSecretCallback(i.ingest.UpdateFromConfig)
-		i.km.AddSecretCallback(i.subscription.UpdateFromConfig)
+		i.km.AddSecretCallbackForBrokerConfig(i.ingest.UpdateFromConfig)
+		i.km.AddSecretCallbackForBrokerConfig(i.subscription.UpdateFromConfig)
 
 		grp.Go(func() error {
 			err := i.km.Start(ctx)

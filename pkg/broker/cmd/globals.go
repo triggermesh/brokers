@@ -76,6 +76,7 @@ func (s *Globals) Initialize() error {
 	var err error
 	defaultConfigApplied := false
 
+	// TODO when at kubernetes, read from configmap
 	if s.ObservabilityConfigPath == "" {
 		defaultConfigApplied = true
 		cfg = observability.DefaultConfig()
@@ -83,7 +84,7 @@ func (s *Globals) Initialize() error {
 		// Read before starting the watcher to use it with the
 		// start routines.
 		cfg, err = observability.ReadFromFile(s.ObservabilityConfigPath)
-		if err != nil || cfg.Logging == nil {
+		if err != nil || cfg.LoggerCfg == nil {
 			log.Printf("Could not appliying provided config: %v", err)
 			defaultConfigApplied = true
 			cfg = observability.DefaultConfig()
@@ -91,7 +92,7 @@ func (s *Globals) Initialize() error {
 	}
 
 	// Call build to perform validation of zap configuration.
-	l, err = cfg.Logging.Build()
+	l, err = cfg.LoggerCfg.Build()
 	for {
 		if err == nil {
 			break
@@ -102,36 +103,44 @@ func (s *Globals) Initialize() error {
 
 		defaultConfigApplied = true
 		cfg = observability.DefaultConfig()
-		l, err = cfg.Logging.Build()
+		l, err = cfg.LoggerCfg.Build()
 	}
 
-	s.LogLevel = cfg.Logging.Level
+	s.LogLevel = cfg.LoggerCfg.Level
 
 	s.Logger = l.Sugar()
-	s.LogLevel = cfg.Logging.Level
+	s.LogLevel = cfg.LoggerCfg.Level
 
 	return nil
 }
 
 func (s *Globals) UpdateLevel(cfg *observability.Config) {
-	s.Logger.Debugw("Updating logging configuration ...")
-	if cfg == nil || cfg.Logging == nil {
+	s.Logger.Debugw("Updating logging configuration.")
+	if cfg == nil || cfg.LoggerCfg == nil {
 		return
 	}
 
-	level := cfg.Logging.Level.Level()
-	s.Logger.Debugw("Updating logging configuration ...", zap.Any("level", level))
+	level := cfg.LoggerCfg.Level.Level()
+	s.Logger.Debugw("Updating logging level", zap.Any("level", level))
 	if s.LogLevel.Level() != level {
 		s.Logger.Infof("Updating logging level from %v to %v.", s.LogLevel.Level(), level)
 		s.LogLevel.SetLevel(level)
 	}
 }
 
-func (s *Globals) NeedsFileWatcher() bool {
+func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
 	// BrokerConfigPath has a default value, it will probably be informed even
 	// when Kubernetes secret is being used. For that reason we check if kubernetes
 	// is being used for the broker configuration.
-	return s.BrokerConfigKubernetesSecretName == "" || s.ObservabilityConfigPath != ""
+	return s.BrokerConfigKubernetesSecretName == ""
+}
+
+func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
+	return s.ObservabilityConfigPath != ""
+}
+
+func (s *Globals) NeedsFileWatcher() bool {
+	return s.NeedsBrokerConfigFileWatcher() || s.NeedsObservabilityConfigFileWatcher()
 }
 
 func (s *Globals) NeedsKubernetesBrokerSecret() bool {
