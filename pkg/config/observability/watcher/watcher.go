@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
-	"sigs.k8s.io/yaml"
 
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	"github.com/triggermesh/brokers/pkg/config/observability"
@@ -74,8 +73,10 @@ func (cw *Watcher) update(content []byte) {
 		return
 	}
 
-	cfg := &observability.Config{}
-	if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
+	// cfg := &observability.Config{}
+	cfg, err := observability.Parse(content)
+	//if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
+	if err != nil {
 		cw.logger.Errorw(fmt.Sprintf("Contents for %s are not valid", cw.path), zap.Error(err))
 		return
 	}
