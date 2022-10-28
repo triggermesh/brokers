@@ -118,15 +118,20 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		if globals.NeedsKubernetesBrokerSecret() {
-			km.AddSecretControllerForBrokerConfig(
+			if err = km.AddSecretControllerForBrokerConfig(
 				globals.BrokerConfigKubernetesSecretName,
-				globals.BrokerConfigKubernetesSecretKey)
+				globals.BrokerConfigKubernetesSecretKey); err != nil {
+				return nil, fmt.Errorf("error adding broker Secret reconciler to controller: %w", err)
+			}
+
 			km.AddSecretCallbackForBrokerConfig(i.UpdateFromConfig)
 			km.AddSecretCallbackForBrokerConfig(sm.UpdateFromConfig)
 		}
 
 		if globals.NeedsKubernetesObservabilityConfigMap() {
-			km.AddConfigMapControllerForObservability(globals.ObservabilityConfigKubernetesConfigMapName)
+			if err = km.AddConfigMapControllerForObservability(globals.ObservabilityConfigKubernetesConfigMapName); err != nil {
+				return nil, fmt.Errorf("error adding observability ConfigMap reconciler to controller: %w", err)
+			}
 			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLevel)
 		}
 
