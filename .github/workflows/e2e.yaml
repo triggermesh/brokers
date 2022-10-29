@@ -23,7 +23,7 @@ jobs:
         ports:
         - 6379:6379
         env:
-          REDIS_ARGS: "--appendonly yes"
+          REDIS_ARGS: "--appendonly yes --appendfsync always --rdbcompression yes"
 
         options: >-
           --health-cmd "redis-cli ping"
