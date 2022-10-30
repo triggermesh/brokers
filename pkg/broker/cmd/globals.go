@@ -188,7 +188,7 @@ func (s *Globals) NeedsKubernetesBrokerSecret() bool {
 }
 
 func (s *Globals) NeedsKubernetesObservabilityConfigMap() bool {
-	return s.BrokerConfigKubernetesSecretName != "" && s.BrokerConfigKubernetesSecretKey != ""
+	return s.ObservabilityConfigKubernetesConfigMapName != ""
 }
 
 func (s *Globals) NeedsKubernetesInformer() bool {
