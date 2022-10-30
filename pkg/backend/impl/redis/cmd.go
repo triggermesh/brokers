@@ -16,6 +16,6 @@ type RedisArgs struct {
 	Stream            string        `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
 	Group             string        `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
 	Instance          string        `help:"Instance name at the Redis stream consumer group." env:"INSTANCE" default:"${instance_name}"`
-	StreamMaxLen      int           `help:"Limit the number of items in a stream by trimming it." env:"STREAM_MAXLEN" default:"0"`
+	StreamMaxLen      int           `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
 	ProcessingTimeout time.Duration `help:"Time after which an event that did not complete processing will be re-delivered by Redis." env:"PROCESSING_TIMEOUT" default:"3m"`
 }

@@ -26,7 +26,7 @@ type Globals struct {
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 
-	KubernetesNamespace                        string `help:"Namespace where the broker is running.." env:"KUBERNETES_NAMESPACE"`
+	KubernetesNamespace                        string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
 	BrokerConfigKubernetesSecretName           string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
 	BrokerConfigKubernetesSecretKey            string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
 	ObservabilityConfigKubernetesConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME"`
