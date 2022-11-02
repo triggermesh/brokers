@@ -187,6 +187,7 @@ Name | Default | Information
 broker-config-path        | /etc/triggermesh/broker.conf | Path to broker configuration file.
 observability-config-path | | Path to observability configuration file.
 port                      | 8080 | HTTP Port to listen for CloudEvents.
+instance-name             | `{hostname}` | Instance name. When running at Kubernetes should be set to Pod name.
 kubernetes-namespace      | | Namespace where the broker is running.
 broker-config-kubernetes-secret-name | | Secret object name that contains the broker configuration.
 broker-config-kubernetes-secret-key  | | Secret object key that contains the broker configuration.
@@ -199,7 +200,6 @@ redis.tls-enabled | false | TLS enablement for Redis connection.
 redis.tls-skip-verify | false | TLS skipping certificate verification.
 redis.stream | triggermesh | Stream name that stores the broker's CloudEvents.
 redis.group  | default | Redis stream consumer group name.
-redis.instance | `{hostname}` | Instance name at the Redis stream consumer group.
 redis.stream-max-len | 0 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
 redis.processing-timeout | 3m | Time after which an event that did not complete processing will be re-delivered by Redis.
 memory.buffer-size | 10000 | Number of events that can be hosted in the backend.
@@ -212,6 +212,7 @@ Name                                  | Default | Information
 BROKER_CONFIG_PATH                    | /etc/triggermesh/broker.conf | Path to broker configuration file.
 OBSERVABILITY_CONFIG_PATH             |  | Path to observability configuration file.
 PORT                                  | 8080 | HTTP Port to listen for CloudEvents.
+INSTANCE_NAME                         | `{hostname}` | Instance name. When running at Kubernetes should be set to Pod name.
 KUBERNETES_NAMESPACE                  |  | Namespace where the broker is running.
 BROKER_CONFIG_KUBERNETES_SECRET_NAME  | | Secret object name that contains the broker configuration.
 BROKER_CONFIG_KUBERNETES_SECRET_KEY   | | Secret object key that contains the broker configuration.

@@ -13,9 +13,12 @@ type RedisArgs struct {
 	TLSEnabled    bool   `help:"TLS enablement for Redis connection." env:"TLS_ENABLED" default:"false"`
 	TLSSkipVerify bool   `help:"TLS skipping certificate verification." env:"TLS_SKIP_VERIFY" default:"false"`
 
-	Stream            string        `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
-	Group             string        `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
-	Instance          string        `help:"Instance name at the Redis stream consumer group." env:"INSTANCE" default:"${instance_name}"`
+	Stream string `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
+	Group  string `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
+	// Instance          string        `help:"Instance name at the Redis stream consumer group." env:"INSTANCE" default:"${instance_name}"`
+	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
+	Instance string `kong:"-"`
+
 	StreamMaxLen      int           `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
 	ProcessingTimeout time.Duration `help:"Time after which an event that did not complete processing will be re-delivered by Redis." env:"PROCESSING_TIMEOUT" default:"3m"`
 }
