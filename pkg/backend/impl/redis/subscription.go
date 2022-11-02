@@ -40,6 +40,10 @@ type subscription struct {
 }
 
 func (s *subscription) start() {
+	s.logger.Infow("Starting Redis subscription",
+		zap.String("group", s.group),
+		zap.String("instance", s.instance),
+		zap.String("stream", s.stream))
 	// Start reading all pending messages
 	id := "0"
 
@@ -78,7 +82,7 @@ func (s *subscription) start() {
 				// canceled
 				if !strings.HasSuffix(err.Error(), "i/o timeout") &&
 					err.Error() != "context canceled" {
-					s.logger.Errorw("Error reading CloudEvents from consumer group", zap.String("groups", s.group), zap.Error(err))
+					s.logger.Errorw("Error reading CloudEvents from consumer group", zap.String("group", s.group), zap.Error(err))
 				}
 				continue
 			}

@@ -15,6 +15,9 @@ type StartCmd struct {
 
 func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 	globals.Logger.Debug("Creating Redis backend client")
+
+	// Use InstanceName as Redis instance at the consumer group.
+	c.Redis.Instance = globals.InstanceName
 	backend := redis.New(&c.Redis, globals.Logger.Named("redis"))
 
 	b, err := broker.NewInstance(globals, backend)

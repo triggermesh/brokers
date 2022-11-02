@@ -25,6 +25,7 @@ type Globals struct {
 	BrokerConfigPath        string `help:"Path to broker configuration file." env:"BROKER_CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
+	InstanceName            string `help:"Instance name. When running at Kubernetes should be set to Pod name" env:"INSTANCE_NAME" default:"${instance_name}"`
 
 	KubernetesNamespace                        string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
 	BrokerConfigKubernetesSecretName           string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
