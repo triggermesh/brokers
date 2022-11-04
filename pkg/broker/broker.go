@@ -105,7 +105,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 					return nil, fmt.Errorf("error adding observability watcher for %q: %w", globals.ObservabilityConfigPath, err)
 				}
 
-				ocfgw.AddCallback(globals.UpdateLevel)
+				ocfgw.AddCallback(globals.UpdateLogLevel)
+				ocfgw.AddCallback(globals.UpdateMetricsOptions)
 				broker.ocw = ocfgw
 			}
 		}
@@ -132,7 +133,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			if err = km.AddConfigMapControllerForObservability(globals.ObservabilityConfigKubernetesConfigMapName); err != nil {
 				return nil, fmt.Errorf("error adding observability ConfigMap reconciler to controller: %w", err)
 			}
-			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLevel)
+			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLogLevel)
+			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateMetricsOptions)
 		}
 
 		broker.km = km

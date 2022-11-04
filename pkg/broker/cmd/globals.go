@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"knative.dev/pkg/metrics"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/triggermesh/brokers/pkg/config/observability"
+)
+
+const (
+	metricsComponent = "broker"
 )
 
 type Globals struct {
@@ -31,6 +36,7 @@ type Globals struct {
 	BrokerConfigKubernetesSecretName           string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
 	BrokerConfigKubernetesSecretKey            string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
 	ObservabilityConfigKubernetesConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME"`
+	ObservabilityMetricsDomain                 string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
 	Context  context.Context    `kong:"-"`
 	Logger   *zap.SugaredLogger `kong:"-"`
@@ -152,10 +158,49 @@ func (s *Globals) Initialize() error {
 	s.Logger = l.Sugar()
 	s.LogLevel = cfg.LoggerCfg.Level
 
+	// Setup go metrics.
+	metrics.MemStatsOrDie(s.Context)
+	// Setup broker metrics and start exporter.
+	s.UpdateMetricsOptions(cfg)
+
 	return nil
 }
 
-func (s *Globals) UpdateLevel(cfg *observability.Config) {
+func (s *Globals) Flush() {
+	if s.Logger != nil {
+		_ = s.Logger.Sync()
+	}
+	metrics.FlushExporter()
+}
+
+func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
+	s.Logger.Debugw("Updating metrics configuration.")
+	if cfg == nil {
+		return
+	}
+
+	m, err := cfg.ToMap()
+	if err != nil {
+		s.Logger.Errorw("Failed to parse config into map", zap.Error(err))
+		return
+	}
+
+	err = metrics.UpdateExporter(
+		s.Context,
+		metrics.ExporterOptions{
+			Domain:         s.ObservabilityMetricsDomain,
+			Component:      metricsComponent,
+			ConfigMap:      m,
+			PrometheusPort: cfg.PrometheusPort,
+		},
+		s.Logger)
+
+	if err != nil {
+		s.Logger.Errorw("failed to update metrics exporter", zap.Error(err))
+	}
+}
+
+func (s *Globals) UpdateLogLevel(cfg *observability.Config) {
 	s.Logger.Debugw("Updating logging configuration.")
 	if cfg == nil || cfg.LoggerCfg == nil {
 		return

@@ -41,6 +41,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("error initializing: %w", err))
 	}
+	defer cli.Flush()
 
 	err = kc.Run(&cli.Globals)
 	kc.FatalIfErrorf(err)

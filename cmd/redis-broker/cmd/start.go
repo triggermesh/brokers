@@ -17,6 +17,7 @@ func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 	globals.Logger.Debug("Creating Redis backend client")
 
 	// Use InstanceName as Redis instance at the consumer group.
+	// TODO add namespace to instance name when running at kubernetes
 	c.Redis.Instance = globals.InstanceName
 	backend := redis.New(&c.Redis, globals.Logger.Named("redis"))
 
