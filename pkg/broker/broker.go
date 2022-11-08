@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/google/uuid"
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
@@ -21,6 +22,7 @@ import (
 	cfgbwatcher "github.com/triggermesh/brokers/pkg/config/broker/watcher"
 	cfgowatcher "github.com/triggermesh/brokers/pkg/config/observability/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
+	"github.com/triggermesh/brokers/pkg/ingest/metrics"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
 )
 
@@ -47,13 +49,23 @@ type Instance struct {
 
 func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	globals.Logger.Debug("Creating subscription manager")
+
+	instanceID := uuid.New().String()
+
+	// Create and pass reporter context
 	sm, err := subscriptions.New(globals.Logger.Named("subs"), b)
 	if err != nil {
 		return nil, err
 	}
 
 	globals.Logger.Debug("Creating HTTP ingest server")
-	i := ingest.NewInstance(globals.Logger.Named("ingest"),
+	// Create and pass reporter context
+	ir, err := metrics.NewReporter(globals.BrokerName, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	i := ingest.NewInstance(ir, globals.Logger.Named("ingest"),
 		ingest.InstanceWithPort(globals.Port),
 	)
 
@@ -105,7 +117,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 					return nil, fmt.Errorf("error adding observability watcher for %q: %w", globals.ObservabilityConfigPath, err)
 				}
 
-				ocfgw.AddCallback(globals.UpdateLevel)
+				ocfgw.AddCallback(globals.UpdateLogLevel)
+				ocfgw.AddCallback(globals.UpdateMetricsOptions)
 				broker.ocw = ocfgw
 			}
 		}
@@ -119,8 +132,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 
 		if globals.NeedsKubernetesBrokerSecret() {
 			if err = km.AddSecretControllerForBrokerConfig(
-				globals.BrokerConfigKubernetesSecretName,
-				globals.BrokerConfigKubernetesSecretKey); err != nil {
+				globals.KubernetesBrokerConfigSecretName,
+				globals.KubernetesBrokerConfigSecretKey); err != nil {
 				return nil, fmt.Errorf("error adding broker Secret reconciler to controller: %w", err)
 			}
 
@@ -129,10 +142,11 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		if globals.NeedsKubernetesObservabilityConfigMap() {
-			if err = km.AddConfigMapControllerForObservability(globals.ObservabilityConfigKubernetesConfigMapName); err != nil {
+			if err = km.AddConfigMapControllerForObservability(globals.KubernetesObservabilityConfigMapName); err != nil {
 				return nil, fmt.Errorf("error adding observability ConfigMap reconciler to controller: %w", err)
 			}
-			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLevel)
+			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateLogLevel)
+			km.AddConfigMapCallbackForObservabilityConfig(globals.UpdateMetricsOptions)
 		}
 
 		broker.km = km
@@ -144,6 +158,7 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 func (i *Instance) Start(inctx context.Context) error {
 	i.logger.Debug("Starting broker instance")
 	i.status = StatusStarting
+	i.ingest.RegisterProbeHandler(i.ProbeHandler)
 
 	sigctx, stop := signal.NotifyContext(inctx, os.Interrupt, syscall.SIGTERM)
 	defer func() {
@@ -229,4 +244,9 @@ func (i *Instance) Start(inctx context.Context) error {
 
 func (i *Instance) GetStatus() Status {
 	return i.status
+}
+
+func (i *Instance) ProbeHandler() error {
+	// TODO check each service
+	return nil
 }

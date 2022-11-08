@@ -176,60 +176,34 @@ zap-logger-config: |
   }
 ```
 
-## Parameters
-
-### Arguments
+## Broker Parameters
 
 Prefixes `redis.` and `memory.` apply only to their respective broker binaries.
 
-Name | Default | Information
---- | --- | ---
-broker-config-path        | /etc/triggermesh/broker.conf | Path to broker configuration file.
-observability-config-path | | Path to observability configuration file.
-port                      | 8080 | HTTP Port to listen for CloudEvents.
-instance-name             | `{hostname}` | Instance name. When running at Kubernetes should be set to Pod name.
-kubernetes-namespace      | | Namespace where the broker is running.
-broker-config-kubernetes-secret-name | | Secret object name that contains the broker configuration.
-broker-config-kubernetes-secret-key  | | Secret object key that contains the broker configuration.
-observability-config-config-map-name | | ConfigMap object name that contains the observability configuration.
-redis.address | 0.0.0.0:6379 | Redis address.
-redis.username | | Redis username.
-redis.password | | Redis password.
-redis.database | 0 | Database ordinal at Redis.
-redis.tls-enabled | false | TLS enablement for Redis connection.
-redis.tls-skip-verify | false | TLS skipping certificate verification.
-redis.stream | triggermesh | Stream name that stores the broker's CloudEvents.
-redis.group  | default | Redis stream consumer group name.
-redis.stream-max-len | 0 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
-redis.processing-timeout | 3m | Time after which an event that did not complete processing will be re-delivered by Redis.
-memory.buffer-size | 10000 | Number of events that can be hosted in the backend.
-memory.produce-timeout | 5s | Maximum wait time for producing an event to the backend.
-
-### Environment Variables
-
-Name                                  | Default | Information
----                                   | --- | ---
-BROKER_CONFIG_PATH                    | /etc/triggermesh/broker.conf | Path to broker configuration file.
-OBSERVABILITY_CONFIG_PATH             |  | Path to observability configuration file.
-PORT                                  | 8080 | HTTP Port to listen for CloudEvents.
-INSTANCE_NAME                         | `{hostname}` | Instance name. When running at Kubernetes should be set to Pod name.
-KUBERNETES_NAMESPACE                  |  | Namespace where the broker is running.
-BROKER_CONFIG_KUBERNETES_SECRET_NAME  | | Secret object name that contains the broker configuration.
-BROKER_CONFIG_KUBERNETES_SECRET_KEY   | | Secret object key that contains the broker configuration.
-OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME | | ConfigMap object name that contains the observability configuration.
-REDIS_ADDRESS | 0.0.0.0:6379 | Redis address.
-REDIS_USERNAME | | Redis username.
-REDIS_PASSWORD | | Redis password.
-REDIS_DATABASE | 0 | Database ordinal at Redis.
-REDIS_TLS_ENABLED | false | TLS enablement for Redis connection.
-REDIS_TLS_SKIP_VERIFY | false | TLS skipping certificate verification.
-REDIS_STREAM | triggermesh | Stream name that stores the broker's CloudEvents.
-REDIS_GROUP  | default | Redis stream consumer group name.
-REDIS_ISNTANCE | `{hostname}` | Instance name at the Redis stream consumer group.
-REDIS_STREAM_MAX_LEN | 0 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
-REDIS_PROCESSING_TIMEOUT | 3m | Time after which an event that did not complete processing will be re-delivered by Redis.
-MEMORY_BUFFER_SIZE  | 10000 | Number of events that can be hosted in the backend.
-MEMORY_PRODUCE_TIMEOUT | 5s | Maximum wait time for producing an event to the backend.
+Name | Environment | Default | Information
+--- | --- | --- | ---
+broker-config-path        | BROKER_CONFIG_PATH              | /etc/triggermesh/broker.conf | Path to broker configuration file.
+observability-config-path | OBSERVABILITY_CONFIG_PATH       | | Path to observability configuration file.
+port                      | PORT                            | 8080 | HTTP Port to listen for CloudEvents.
+broker-name             | BROKER_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to RedisBroker name.
+kubernetes-namespace      | KUBERNETES_NAMESPACE            | | Namespace where the broker is running.
+kubernetes-pod            | KUBERNETES_POD                  | | Pod that runs the broker.
+kubernetes-broker-config-secret-name  | KUBERNETES_BROKER_CONFIG_SECRET_NAME | | Secret object name that contains the broker configuration.
+kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | | Secret object key that contains the broker configuration.
+kubernetes-observability-config-map-name  | KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
+observability-metrics-domain          | OBSERVABILITY_METRICS_DOMAIN      | Domain to be used for some metrics reporters.
+redis.address             | REDIS_ADDRESS                   | 0.0.0.0:6379 | Redis address.
+redis.username            | REDIS_USERNAME                  | | Redis username.
+redis.password            | REDIS_PASSWORD                  | | Redis password.
+redis.database            | REDIS_DATABASE                  | 0 | Database ordinal at Redis.
+redis.tls-enabled         | REDIS_TLS_ENABLED               | false | TLS enablement for Redis connection.
+redis.tls-skip-verify     | REDIS_TLS_SKIP_VERIFY           | false | TLS skipping certificate verification.
+redis.stream              | REDIS_STREAM                    | triggermesh | Stream name that stores the broker's CloudEvents.
+redis.group               | REDIS_GROUP                     | default | Redis stream consumer group name.
+redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 0 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
+redis.processing-timeout  | REDIS_PROCESSING_TIMEOUT        | 3m | Time after which an event that did not complete processing will be re-delivered by Redis.
+memory.buffer-size        | MEMORY_BUFFER_SIZE              | 10000 | Number of events that can be hosted in the backend.
+memory.produce-timeout    | MEMORY_PRODUCE_TIMEOUT          | 5s | Maximum wait time for producing an event to the backend.
 
 ## Generate License
 
