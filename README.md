@@ -185,11 +185,12 @@ Name | Environment | Default | Information
 broker-config-path        | BROKER_CONFIG_PATH              | /etc/triggermesh/broker.conf | Path to broker configuration file.
 observability-config-path | OBSERVABILITY_CONFIG_PATH       | | Path to observability configuration file.
 port                      | PORT                            | 8080 | HTTP Port to listen for CloudEvents.
-instance-name             | INSTANCE_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to Pod name.
+broker-name             | BROKER_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to RedisBroker name.
 kubernetes-namespace      | KUBERNETES_NAMESPACE            | | Namespace where the broker is running.
-broker-config-kubernetes-secret-name  | BROKER_CONFIG_KUBERNETES_SECRET_NAME | | Secret object name that contains the broker configuration.
-broker-config-kubernetes-secret-key   | BROKER_CONFIG_KUBERNETES_SECRET_KEY  | | Secret object key that contains the broker configuration.
-observability-config-config-map-name  | OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
+kubernetes-pod            | KUBERNETES_POD                  | | Pod that runs the broker.
+kubernetes-broker-config-secret-name  | KUBERNETES_BROKER_CONFIG_SECRET_NAME | | Secret object name that contains the broker configuration.
+kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | | Secret object key that contains the broker configuration.
+kubernetes-observability-config-map-name  | KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
 observability-metrics-domain          | OBSERVABILITY_METRICS_DOMAIN      | Domain to be used for some metrics reporters.
 redis.address             | REDIS_ADDRESS                   | 0.0.0.0:6379 | Redis address.
 redis.username            | REDIS_USERNAME                  | | Redis username.

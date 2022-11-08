@@ -9,12 +9,15 @@ import (
 	"net/http"
 	"time"
 
+	obshttp "github.com/cloudevents/sdk-go/observability/opencensus/v2/http"
+	ceclient "github.com/cloudevents/sdk-go/v2/client"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/ingest/metrics"
 )
 
 type CloudEventHandler func(context.Context, *cloudevents.Event) error
@@ -26,15 +29,17 @@ type Instance struct {
 	ceHandler    CloudEventHandler
 	probeHandler ProbeHandler
 
-	logger *zap.SugaredLogger
+	reporter metrics.Reporter
+	logger   *zap.SugaredLogger
 }
 
 type InstanceOption func(*Instance)
 
-func NewInstance(logger *zap.SugaredLogger, opts ...InstanceOption) *Instance {
+func NewInstance(reporter metrics.Reporter, logger *zap.SugaredLogger, opts ...InstanceOption) *Instance {
 	i := &Instance{
-		port:   8080,
-		logger: logger,
+		port:     8080,
+		logger:   logger,
+		reporter: reporter,
 	}
 
 	for _, opt := range opts {
@@ -55,62 +60,45 @@ func (i *Instance) Start(ctx context.Context) error {
 		panic("logger is nil!")
 	}
 
-	r := mux.NewRouter()
-
-	p, err := cloudevents.NewHTTP(
+	p, err := obshttp.NewObservedHTTP(
 		cloudevents.WithPort(i.port),
+		cloudevents.WithShutdownTimeout(10*time.Second),
+		cloudevents.WithGetHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Use common health paths.
+			if r.URL.Path != "/healthz" && r.URL.Path != "/_ah/health" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			if err := i.probeHandler(); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, werr := w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
+				i.logger.Errorw("Could not write HTTP response (not healthy)", zap.Errors("error", []error{
+					werr, err}))
+				return
+			}
+
+			if _, err := w.Write([]byte(`{"ok": "true"}`)); err != nil {
+				i.logger.Errorw("Could not write HTTP response (healthy)", zap.Error(err))
+			}
+		}),
 	)
 	if err != nil {
-		return fmt.Errorf("could not create a CloudEvents HTTP client: %w", err)
+		return fmt.Errorf("could not create a CloudEvents HTTP client protocol: %w", err)
 	}
 
-	h, err := cloudevents.NewHTTPReceiveHandler(ctx, p, i.cloudEventsHandler)
+	c, err := ceclient.New(p, ceclient.WithObservabilityService(
+		metrics.NewOpenCensusObservabilityService(i.reporter)))
 	if err != nil {
-		return fmt.Errorf("failed to create CloudEvents handler: %w", err)
+		return fmt.Errorf("failed to create CloudEvents client: %w", err)
 	}
 
-	r.Handle("/", h)
-
-	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		if err := i.probeHandler(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, werr := w.Write([]byte(`{"ok":"false", "error":"` + err.Error() + `"}`))
-			i.logger.Errorw("Could not write HTTP response (not healthy)", zap.Errors("error", []error{
-				werr, err}))
-			return
-		}
-
-		_, err = w.Write([]byte(`{"ok": "true"}`))
-		i.logger.Errorw("Could not write HTTP response (healthy)", zap.Error(err))
-	})
-
-	address := fmt.Sprintf(":%d", i.port)
-	srv := &http.Server{
-		Addr:         address,
-		WriteTimeout: time.Second * 10,
-		ReadTimeout:  time.Second * 10,
-		IdleTimeout:  time.Second * 60,
-		Handler:      r, // Pass our instance of gorilla/mux in.
+	i.logger.Infof("Listening on %d", i.port)
+	if err := c.StartReceiver(ctx, i.cloudEventsHandler); err != nil {
+		return fmt.Errorf("unable to start HTTP server: %w", err)
 	}
 
-	var srverr error
-	go func() {
-		i.logger.Info("Listening on " + address)
-		if err := srv.ListenAndServe(); err != nil {
-			srverr = fmt.Errorf("unable to start HTTP server, %s", err)
-		}
-	}()
-
-	<-ctx.Done()
-
-	if srverr != nil {
-		return srverr
-	}
-
-	i.logger.Info("Exiting HTTP server")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return srv.Shutdown(ctx)
+	return nil
 }
 
 func (i *Instance) UpdateFromConfig(c *cfgbroker.Config) {
@@ -129,7 +117,7 @@ func (i *Instance) cloudEventsHandler(ctx context.Context, event cloudevents.Eve
 	i.logger.Debug(fmt.Sprintf("Received CloudEvent: %v", event.String()))
 
 	if i.ceHandler == nil {
-		i.logger.Errorw("CloudEvent lost due to no handler configured")
+		i.logger.Errorw("CloudEvent lost due to no ingest handler configured")
 		return nil, protocol.ResultNACK
 	}
 

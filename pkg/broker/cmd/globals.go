@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/metrics"
+
+	knmetrics "knative.dev/pkg/metrics"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,13 +31,16 @@ type Globals struct {
 	BrokerConfigPath        string `help:"Path to broker configuration file." env:"BROKER_CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
-	InstanceName            string `help:"Instance name. When running at Kubernetes should be set to Pod name" env:"INSTANCE_NAME" default:"${instance_name}"`
+	BrokerName              string `help:"Instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${instance_name}"`
 
-	KubernetesNamespace                        string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
-	BrokerConfigKubernetesSecretName           string `help:"Secret object name that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_NAME"`
-	BrokerConfigKubernetesSecretKey            string `help:"Secret object key that contains the broker configuration." env:"BROKER_CONFIG_KUBERNETES_SECRET_KEY"`
-	ObservabilityConfigKubernetesConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"OBSERVABILITY_CONFIG_KUBERNETES_CONFIGMAP_NAME"`
-	ObservabilityMetricsDomain                 string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
+	// Kubernetes parameters
+	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
+	KubernetesPod                        string `help:"Pod that runs the broker." env:"KUBERNETES_POD"`
+	KubernetesBrokerConfigSecretName     string `help:"Secret object name that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_NAME"`
+	KubernetesBrokerConfigSecretKey      string `help:"Secret object key that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_KEY"`
+	KubernetesObservabilityConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME"`
+
+	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
 	Context  context.Context    `kong:"-"`
 	Logger   *zap.SugaredLogger `kong:"-"`
@@ -47,21 +51,21 @@ func (s *Globals) Validate() error {
 	msg := []string{}
 
 	if s.BrokerConfigPath == "" &&
-		(s.BrokerConfigKubernetesSecretName == "" || s.BrokerConfigKubernetesSecretKey == "") {
+		(s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
 		msg = append(msg, "Broker configuration path or ConfigMap must be informed.")
 	}
 
 	kubeBroker := false
-	if s.BrokerConfigKubernetesSecretName != "" || s.BrokerConfigKubernetesSecretKey != "" {
+	if s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "" {
 		kubeBroker = true
 	}
 
-	if kubeBroker && (s.BrokerConfigKubernetesSecretName == "" || s.BrokerConfigKubernetesSecretKey == "") {
+	if kubeBroker && (s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
 		msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
 	}
 
 	kubeObservability := false
-	if s.ObservabilityConfigKubernetesConfigMapName != "" {
+	if s.KubernetesObservabilityConfigMapName != "" {
 		kubeObservability = true
 	}
 
@@ -112,20 +116,20 @@ func (s *Globals) Initialize() error {
 		if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
 			lastErr = kc.Get(s.Context, client.ObjectKey{
 				Namespace: s.KubernetesNamespace,
-				Name:      s.ObservabilityConfigKubernetesConfigMapName,
+				Name:      s.KubernetesObservabilityConfigMapName,
 			}, cm)
 
 			return lastErr == nil || apierrors.IsNotFound(lastErr), nil
 		}); err != nil {
 			log.Printf("Could not retrieve observability ConfigMap %q: %v",
-				s.ObservabilityConfigKubernetesConfigMapName, err)
+				s.KubernetesObservabilityConfigMapName, err)
 			defaultConfigApplied = true
 		}
 
 		cfg, err = observability.ParseFromMap(cm.Data)
 		if err != nil || cfg.LoggerCfg == nil {
 			log.Printf("Could not apply provided config from ConfigMap %q: %v",
-				s.ObservabilityConfigKubernetesConfigMapName, err)
+				s.KubernetesObservabilityConfigMapName, err)
 			defaultConfigApplied = true
 		}
 
@@ -159,7 +163,7 @@ func (s *Globals) Initialize() error {
 	s.LogLevel = cfg.LoggerCfg.Level
 
 	// Setup go metrics.
-	metrics.MemStatsOrDie(s.Context)
+	knmetrics.MemStatsOrDie(s.Context)
 	// Setup broker metrics and start exporter.
 	s.UpdateMetricsOptions(cfg)
 
@@ -170,7 +174,7 @@ func (s *Globals) Flush() {
 	if s.Logger != nil {
 		_ = s.Logger.Sync()
 	}
-	metrics.FlushExporter()
+	knmetrics.FlushExporter()
 }
 
 func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
@@ -185,9 +189,9 @@ func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
 		return
 	}
 
-	err = metrics.UpdateExporter(
+	err = knmetrics.UpdateExporter(
 		s.Context,
-		metrics.ExporterOptions{
+		knmetrics.ExporterOptions{
 			Domain:         s.ObservabilityMetricsDomain,
 			Component:      metricsComponent,
 			ConfigMap:      m,
@@ -218,7 +222,7 @@ func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
 	// BrokerConfigPath has a default value, it will probably be informed even
 	// when Kubernetes secret is being used. For that reason we check if kubernetes
 	// is being used for the broker configuration.
-	return s.BrokerConfigKubernetesSecretName == ""
+	return s.KubernetesBrokerConfigSecretName == ""
 }
 
 func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
@@ -230,13 +234,20 @@ func (s *Globals) NeedsFileWatcher() bool {
 }
 
 func (s *Globals) NeedsKubernetesBrokerSecret() bool {
-	return s.BrokerConfigKubernetesSecretName != "" && s.BrokerConfigKubernetesSecretKey != ""
+	return s.KubernetesBrokerConfigSecretName != "" && s.KubernetesBrokerConfigSecretKey != ""
 }
 
 func (s *Globals) NeedsKubernetesObservabilityConfigMap() bool {
-	return s.ObservabilityConfigKubernetesConfigMapName != ""
+	return s.KubernetesObservabilityConfigMapName != ""
 }
 
 func (s *Globals) NeedsKubernetesInformer() bool {
 	return s.NeedsKubernetesBrokerSecret() || s.NeedsKubernetesObservabilityConfigMap()
+}
+
+func (s *Globals) IsKubernetes() bool {
+	return s.KubernetesNamespace != "" ||
+		s.NeedsKubernetesBrokerSecret() ||
+		s.NeedsKubernetesInformer() ||
+		s.NeedsKubernetesObservabilityConfigMap()
 }
