@@ -37,7 +37,6 @@ type Globals struct {
 
 	// Kubernetes parameters
 	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
-	KubernetesPod                        string `help:"Pod that runs the broker." env:"KUBERNETES_POD"`
 	KubernetesBrokerConfigSecretName     string `help:"Secret object name that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_NAME"`
 	KubernetesBrokerConfigSecretKey      string `help:"Secret object key that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_KEY"`
 	KubernetesObservabilityConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME"`
