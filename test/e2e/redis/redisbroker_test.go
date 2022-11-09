@@ -64,7 +64,7 @@ func TestRedisBroker(t *testing.T) {
 	producer := lib.NewSimpleProducer(runner.GetBrokerEndPoint("main"))
 	runner.AddProducer("producer", producer)
 
-	consumer := lib.NewSimpleConsumer(9090)
+	consumer := lib.NewSimpleConsumer(9191)
 	runner.AddConsumer("consumer", consumer)
 
 	ep := consumer.GetConsumerEndPoint()

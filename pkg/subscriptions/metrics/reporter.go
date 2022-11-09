@@ -17,40 +17,37 @@ import (
 )
 
 const (
-	LabelIngested = "ingested"
+	LabelDelivered     = "delivered"
+	LabelSentEventType = "sent_type"
+	LabelTrigger       = "trigger_name"
 )
 
 var (
-	ingestedEventKey = tag.MustNewKey(LabelIngested)
+	sentEventTypeKey  = tag.MustNewKey(LabelSentEventType)
+	deliveredEventKey = tag.MustNewKey(LabelDelivered)
+	triggerKey        = tag.MustNewKey(LabelTrigger)
 
 	// eventCountM is a counter which records the number of events received
 	// by the Broker.
 	eventCountM = stats.Int64(
-		"ingest/event_count",
-		"Number of events received by a Broker ingestion.",
+		"trigger/event_count",
+		"Number of events sent via Trigger subscription.",
 		stats.UnitDimensionless,
 	)
 
 	// latencyMs measures the latency in milliseconds for the CloudEvents
 	// client methods.
 	latencyMs = stats.Float64(
-		"ingest/event_latency",
-		"The latency in milliseconds for the Broker CloudEvents ingestion.",
+		"trigger/event_latency",
+		"The latency in milliseconds for the broker Trigger subscriptions.",
 		"ms")
-
-	// rejectedCountM is a counter which records the number of requests that
-	// could not be processed as events.
-	rejectedCountM = stats.Int64(
-		"ingest/rejected_count",
-		"Number of requests rejected by the Broker ingestion.",
-		stats.UnitDimensionless,
-	)
 )
 
 func registerStatViews() error {
 	tagKeys := []tag.Key{
-		metrics.ReceivedEventTypeKey,
-		ingestedEventKey}
+		triggerKey,
+		sentEventTypeKey,
+		deliveredEventKey}
 
 	// Create view to see our measurements.
 	return knmetrics.RegisterResourceView(
@@ -59,7 +56,7 @@ func registerStatViews() error {
 			Description: latencyMs.Description(),
 			Measure:     latencyMs,
 			Aggregation: view.Distribution(0, .01, .1, 1, 10, 100, 1000, 10000),
-			TagKeys:     tagKeys,
+			TagKeys:     append(tagKeys, metrics.ReceivedEventTypeKey),
 		},
 		&view.View{
 			Name:        eventCountM.Name(),
@@ -68,19 +65,15 @@ func registerStatViews() error {
 			Aggregation: view.Count(),
 			TagKeys:     tagKeys,
 		},
-		&view.View{
-			Name:        rejectedCountM.Name(),
-			Description: rejectedCountM.Description(),
-			Measure:     rejectedCountM,
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{},
-		},
 	)
 }
 
+func initContext(ctx context.Context, triggerName string) (context.Context, error) {
+	return tag.New(ctx, tag.Insert(triggerKey, triggerName))
+}
+
 type Reporter interface {
-	ReportProcessedEvent(ingested bool, eventType string, msLatency float64)
-	ReportNonValidEvent()
+	ReportTriggeredEvent(delivered bool, sentType, receivedType string, msLatency float64)
 }
 
 // Reporter holds cached metric objects to report ingress metrics.
@@ -92,7 +85,7 @@ type reporter struct {
 var once sync.Once
 
 // NewReporter retuns a StatReporter for ingested events.
-func NewReporter(ctx context.Context) (Reporter, error) {
+func NewReporter(context context.Context, trigger string) (Reporter, error) {
 	r := &reporter{}
 
 	var err error
@@ -107,24 +100,23 @@ func NewReporter(ctx context.Context) (Reporter, error) {
 		return nil, err
 	}
 
-	r.ctx = ctx
+	r.ctx, err = initContext(context, trigger)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing OpenCensus context with tags: %w", err)
+	}
 
 	return r, nil
 }
 
-func (r *reporter) ReportProcessedEvent(ingested bool, eventType string, msLatency float64) {
+func (r *reporter) ReportTriggeredEvent(delivered bool, sentType, receivedType string, msLatency float64) {
 	ctx, err := tag.New(r.ctx,
-		tag.Insert(metrics.ReceivedEventTypeKey, eventType),
-		tag.Insert(ingestedEventKey, strconv.FormatBool(ingested)),
+		tag.Insert(sentEventTypeKey, sentType),
+		tag.Insert(deliveredEventKey, strconv.FormatBool(delivered)),
 	)
 	if err != nil {
 		r.logger.Errorw("error setting tags to OpenCensus context", zap.Error(err))
 	}
 
-	knmetrics.Record(ctx, latencyMs.M(msLatency))
+	knmetrics.Record(ctx, latencyMs.M(msLatency), stats.WithTags(tag.Insert(metrics.ReceivedEventTypeKey, receivedType)))
 	knmetrics.Record(ctx, eventCountM.M(1))
-}
-
-func (r *reporter) ReportNonValidEvent() {
-	knmetrics.Record(r.ctx, rejectedCountM.M(1))
 }

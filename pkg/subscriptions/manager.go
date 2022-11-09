@@ -5,17 +5,18 @@ package subscriptions
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	obshttp "github.com/cloudevents/sdk-go/observability/opencensus/v2/http"
+	ceclient "github.com/cloudevents/sdk-go/v2/client"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/subscriptions/metrics"
 )
 
 type Subscription struct {
@@ -23,8 +24,8 @@ type Subscription struct {
 }
 
 type Manager struct {
-	logger   *zap.SugaredLogger
-	ceClient cloudevents.Client
+	logger *zap.SugaredLogger
+	// ceClient ceclient.Client
 
 	backend backend.Interface
 
@@ -35,26 +36,14 @@ type Manager struct {
 	m   sync.RWMutex
 }
 
-func New(logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
+func New(inctx context.Context, logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
 	// Needed for Knative filters
-	ctx := context.Background()
-	ctx = logging.WithLogger(ctx, logger)
-
-	p, err := cloudevents.NewHTTP()
-	if err != nil {
-		return nil, fmt.Errorf("could not create CloudEvents HTTP protocol: %w", err)
-	}
-
-	ceClient, err := cloudevents.NewClient(p)
-	if err != nil {
-		return nil, fmt.Errorf("could not create CloudEvents HTTP client: %w", err)
-	}
+	ctx := logging.WithLogger(inctx, logger)
 
 	return &Manager{
 		backend:     be,
 		subscribers: make(map[string]*subscriber),
 		logger:      logger,
-		ceClient:    ceClient,
 		ctx:         ctx,
 	}, nil
 }
@@ -75,11 +64,28 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 	for name, trigger := range c.Triggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			// If there is no subscription by that name, create one.
+			// Create CloudEvents client with reporter for Trigger.
+			ir, err := metrics.NewReporter(m.ctx, name)
+			if err != nil {
+				m.logger.Errorw("Failed to setup trigger stats reporter", zap.String("trigger", name), zap.Error(err))
+				continue
+			}
+
+			p, err := obshttp.NewObservedHTTP()
+			if err != nil {
+				m.logger.Errorw("Could not create CloudEvents HTTP protocol", zap.String("trigger", name), zap.Error(err))
+				continue
+			}
+
+			ceClient, err := ceclient.New(p, ceclient.WithObservabilityService(metrics.NewOpenCensusObservabilityService(ir)))
+			if err != nil {
+				m.logger.Errorw("Could not create CloudEvents HTTP client", zap.String("trigger", name), zap.Error(err))
+			}
+
 			s = &subscriber{
 				name:      name,
 				backend:   m.backend,
-				ceClient:  m.ceClient,
+				ceClient:  ceClient,
 				parentCtx: m.ctx,
 				logger:    m.logger,
 			}
