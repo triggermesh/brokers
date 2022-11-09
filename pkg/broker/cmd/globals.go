@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +32,8 @@ type Globals struct {
 	BrokerConfigPath        string `help:"Path to broker configuration file." env:"BROKER_CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
-	BrokerName              string `help:"Instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${instance_name}"`
+	BrokerName              string `help:"Broker instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${hostname}"`
+	// InstanceID              string `help:"Running process instance identifier. When running at Kubernetes should be set to the Pod name" env:"INSTANCE_ID" default:"${unique_id}"`
 
 	// Kubernetes parameters
 	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
@@ -46,9 +46,6 @@ type Globals struct {
 	Context  context.Context    `kong:"-"`
 	Logger   *zap.SugaredLogger `kong:"-"`
 	LogLevel zap.AtomicLevel    `kong:"-"`
-
-	// This ID is unique per instance of the broker running.
-	InstanceID string `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -166,10 +163,9 @@ func (s *Globals) Initialize() error {
 	s.Logger = l.Sugar()
 	s.LogLevel = cfg.LoggerCfg.Level
 
-	s.InstanceID = uuid.New().String()
-
 	// Setup metrics and start exporter.
-	metrics.InitializeReportingContext(s.Context, s.BrokerName, s.InstanceID)
+	// s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName, s.InstanceID)
+	s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName)
 	knmetrics.MemStatsOrDie(s.Context)
 	s.UpdateMetricsOptions(cfg)
 
