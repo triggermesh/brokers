@@ -15,7 +15,6 @@ type RedisArgs struct {
 
 	Stream string `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
 	Group  string `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
-	// Instance          string        `help:"Instance name at the Redis stream consumer group." env:"INSTANCE" default:"${instance_name}"`
 	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 

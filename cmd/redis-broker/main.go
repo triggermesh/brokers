@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
+	"github.com/google/uuid"
 
 	"github.com/triggermesh/brokers/cmd/redis-broker/cmd"
 	pkgcmd "github.com/triggermesh/brokers/pkg/broker/cmd"
@@ -27,14 +28,15 @@ func main() {
 		},
 	}
 
-	instance, err := os.Hostname()
+	hostname, err := os.Hostname()
 	if err != nil {
 		panic(fmt.Errorf("error retrieving the host name: %w", err))
 	}
 
 	kc := kong.Parse(&cli,
 		kong.Vars{
-			"instance_name": instance,
+			"hostname":  hostname,
+			"unique_id": uuid.New().String(),
 		})
 
 	err = cli.Initialize()

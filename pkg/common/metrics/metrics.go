@@ -13,27 +13,29 @@ import (
 )
 
 const (
-	ResourceTypeTriggerMeshBroker = "triggermesh_broker"
+	resourceTypeTriggerMeshBroker = "triggermesh_broker"
 
-	LabelBrokerName        = "broker_name"
-	LabelUniqueName        = "unique_name"
-	LabelReceivedEventType = "received_type"
+	labelBrokerName = "broker_name"
+	// labelUniqueName        = "unique_name"
+	labelReceivedEventType = "received_type"
 )
 
 var (
 	once sync.Once
 
-	ReceivedEventTypeKey = tag.MustNewKey(LabelReceivedEventType)
+	ReceivedEventTypeKey = tag.MustNewKey(labelReceivedEventType)
 )
 
-func InitializeReportingContext(ctx context.Context, brokerName, instanceID string) {
+// func InitializeReportingContext(ctx context.Context, brokerName, instanceID string) context.Context {
+func InitializeReportingContext(ctx context.Context, brokerName string) context.Context {
 	once.Do(func() {
 		ctx = metricskey.WithResource(ctx, resource.Resource{
-			Type: ResourceTypeTriggerMeshBroker,
+			Type: resourceTypeTriggerMeshBroker,
 			Labels: map[string]string{
-				LabelBrokerName: brokerName,
-				LabelUniqueName: instanceID,
+				labelBrokerName: brokerName,
+				// labelUniqueName: instanceID,
 			},
 		})
 	})
+	return ctx
 }
