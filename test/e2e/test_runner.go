@@ -116,6 +116,7 @@ func (r *BrokerTestRunner) AddBroker(name string, port int, backend backend.Inte
 		Logger:           observedLogger.Sugar(),
 		Port:             port,
 		BrokerConfigPath: cfgfile.Name(),
+		Context:          r.mainCtx,
 	}
 
 	i, err := broker.NewInstance(g, backend)
