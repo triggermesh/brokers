@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
-
-	knmetrics "knative.dev/pkg/metrics"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,6 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	knmetrics "knative.dev/pkg/metrics"
+
+	"github.com/triggermesh/brokers/pkg/common/metrics"
 	"github.com/triggermesh/brokers/pkg/config/observability"
 )
 
@@ -45,6 +47,9 @@ type Globals struct {
 	Context  context.Context    `kong:"-"`
 	Logger   *zap.SugaredLogger `kong:"-"`
 	LogLevel zap.AtomicLevel    `kong:"-"`
+
+	// This ID is unique per instance of the broker running.
+	InstanceID string `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -162,9 +167,11 @@ func (s *Globals) Initialize() error {
 	s.Logger = l.Sugar()
 	s.LogLevel = cfg.LoggerCfg.Level
 
-	// Setup go metrics.
+	s.InstanceID = uuid.New().String()
+
+	// Setup metrics and start exporter.
+	s.Context = metrics.InitializeReportingContext(s.BrokerName, s.InstanceID)
 	knmetrics.MemStatsOrDie(s.Context)
-	// Setup broker metrics and start exporter.
 	s.UpdateMetricsOptions(cfg)
 
 	return nil

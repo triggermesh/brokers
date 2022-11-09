@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/google/uuid"
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
@@ -50,17 +49,15 @@ type Instance struct {
 func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	globals.Logger.Debug("Creating subscription manager")
 
-	instanceID := uuid.New().String()
-
-	// Create and pass reporter context
-	sm, err := subscriptions.New(globals.Logger.Named("subs"), b)
+	// Create subscription manager.
+	sm, err := subscriptions.New(globals.Context, globals.Logger.Named("subs"), b)
 	if err != nil {
 		return nil, err
 	}
 
 	globals.Logger.Debug("Creating HTTP ingest server")
-	// Create and pass reporter context
-	ir, err := metrics.NewReporter(globals.BrokerName, instanceID)
+	// Create metrics reporter.
+	ir, err := metrics.NewReporter(globals.Context)
 	if err != nil {
 		return nil, err
 	}
