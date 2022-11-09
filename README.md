@@ -187,7 +187,6 @@ observability-config-path | OBSERVABILITY_CONFIG_PATH       | | Path to observab
 port                      | PORT                            | 8080 | HTTP Port to listen for CloudEvents.
 broker-name             | BROKER_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to RedisBroker name.
 kubernetes-namespace      | KUBERNETES_NAMESPACE            | | Namespace where the broker is running.
-kubernetes-pod            | KUBERNETES_POD                  | | Pod that runs the broker.
 kubernetes-broker-config-secret-name  | KUBERNETES_BROKER_CONFIG_SECRET_NAME | | Secret object name that contains the broker configuration.
 kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | | Secret object key that contains the broker configuration.
 kubernetes-observability-config-map-name  | KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
