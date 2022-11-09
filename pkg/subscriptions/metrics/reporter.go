@@ -47,7 +47,6 @@ func registerStatViews() error {
 	tagKeys := []tag.Key{
 		triggerKey,
 		sentEventTypeKey,
-		metrics.ReceivedEventTypeKey,
 		deliveredEventKey}
 
 	// Create view to see our measurements.
@@ -57,7 +56,7 @@ func registerStatViews() error {
 			Description: latencyMs.Description(),
 			Measure:     latencyMs,
 			Aggregation: view.Distribution(0, .01, .1, 1, 10, 100, 1000, 10000),
-			TagKeys:     tagKeys,
+			TagKeys:     append(tagKeys, metrics.ReceivedEventTypeKey),
 		},
 		&view.View{
 			Name:        eventCountM.Name(),
@@ -112,13 +111,12 @@ func NewReporter(context context.Context, trigger string) (Reporter, error) {
 func (r *reporter) ReportTriggeredEvent(delivered bool, sentType, receivedType string, msLatency float64) {
 	ctx, err := tag.New(r.ctx,
 		tag.Insert(sentEventTypeKey, sentType),
-		tag.Insert(metrics.ReceivedEventTypeKey, receivedType),
 		tag.Insert(deliveredEventKey, strconv.FormatBool(delivered)),
 	)
 	if err != nil {
 		r.logger.Errorw("error setting tags to OpenCensus context", zap.Error(err))
 	}
 
-	knmetrics.Record(ctx, latencyMs.M(msLatency))
+	knmetrics.Record(ctx, latencyMs.M(msLatency), stats.WithTags(tag.Insert(metrics.ReceivedEventTypeKey, receivedType)))
 	knmetrics.Record(ctx, eventCountM.M(1))
 }
