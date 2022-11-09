@@ -181,7 +181,7 @@ func (s *Globals) Flush() {
 
 func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
 	s.Logger.Debugw("Updating metrics configuration.")
-	if cfg == nil {
+	if cfg == nil || cfg.MetricsConfig == nil {
 		return
 	}
 
@@ -191,7 +191,7 @@ func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
 		return
 	}
 
-	err = knmetrics.UpdateExporter(
+	if err = knmetrics.UpdateExporter(
 		s.Context,
 		knmetrics.ExporterOptions{
 			Domain:         s.ObservabilityMetricsDomain,
@@ -199,9 +199,7 @@ func (s *Globals) UpdateMetricsOptions(cfg *observability.Config) {
 			ConfigMap:      m,
 			PrometheusPort: cfg.PrometheusPort,
 		},
-		s.Logger)
-
-	if err != nil {
+		s.Logger); err != nil {
 		s.Logger.Errorw("failed to update metrics exporter", zap.Error(err))
 	}
 }
