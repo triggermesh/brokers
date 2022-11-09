@@ -21,15 +21,14 @@ const (
 )
 
 var (
-	reportingContext context.Context
-	once             sync.Once
+	once sync.Once
 
 	ReceivedEventTypeKey = tag.MustNewKey(LabelReceivedEventType)
 )
 
-func InitializeReportingContext(brokerName, instanceID string) context.Context {
+func InitializeReportingContext(ctx context.Context, brokerName, instanceID string) {
 	once.Do(func() {
-		reportingContext = metricskey.WithResource(context.Background(), resource.Resource{
+		ctx = metricskey.WithResource(ctx, resource.Resource{
 			Type: ResourceTypeTriggerMeshBroker,
 			Labels: map[string]string{
 				LabelBrokerName: brokerName,
@@ -37,6 +36,4 @@ func InitializeReportingContext(brokerName, instanceID string) context.Context {
 			},
 		})
 	})
-
-	return reportingContext
 }

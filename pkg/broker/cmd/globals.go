@@ -169,7 +169,7 @@ func (s *Globals) Initialize() error {
 	s.InstanceID = uuid.New().String()
 
 	// Setup metrics and start exporter.
-	s.Context = metrics.InitializeReportingContext(s.BrokerName, s.InstanceID)
+	metrics.InitializeReportingContext(s.Context, s.BrokerName, s.InstanceID)
 	knmetrics.MemStatsOrDie(s.Context)
 	s.UpdateMetricsOptions(cfg)
 
