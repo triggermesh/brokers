@@ -81,9 +81,14 @@ func defaultZapConfig() *zap.Config {
 	return &lc
 }
 
+func defaultMetricsConfig() *MetricsConfig {
+	return &MetricsConfig{}
+}
+
 func DefaultConfig() *Config {
 	return &Config{
-		LoggerCfg: defaultZapConfig(),
+		LoggerCfg:     defaultZapConfig(),
+		MetricsConfig: defaultMetricsConfig(),
 	}
 }
 
@@ -102,13 +107,15 @@ func Parse(content []byte) (*Config, error) {
 
 	cfg.LoggerCfg = loggingCfg
 
+	if cfg.MetricsConfig == nil {
+		cfg.MetricsConfig = defaultMetricsConfig()
+	}
+
 	return cfg, nil
 }
 
 func ParseFromMap(content map[string]string) (*Config, error) {
-	cfg := &Config{
-		LoggerCfg: defaultZapConfig(),
-	}
+	cfg := DefaultConfig()
 
 	if c, ok := content[zapLoggerConfigLabel]; ok {
 		if err := json.Unmarshal([]byte(c), cfg.LoggerCfg); err != nil {
