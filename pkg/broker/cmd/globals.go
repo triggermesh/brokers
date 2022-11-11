@@ -164,9 +164,8 @@ func (s *Globals) Initialize() error {
 	s.LogLevel = cfg.LoggerCfg.Level
 
 	// Setup metrics and start exporter.
-	// s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName, s.InstanceID)
-	s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName)
 	knmetrics.MemStatsOrDie(s.Context)
+	s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName)
 	s.UpdateMetricsOptions(cfg)
 
 	return nil
