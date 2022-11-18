@@ -133,11 +133,14 @@ Alternatively environment variables could be used.
 CONFIG_PATH=.local/config.yaml MEMORY_BUFFER_SIZE=100 MEMORY_PRODUCE_TIMEOUT=1s go run ./cmd/memory-broker start
 ```
 
-## Container
+## Container Images
 
 ```console
 docker build -t my-repo/redis-broker:my-version .
 docker push my-repo/redis-broker:my-version
+
+docker build -t my-repo/memory-broker:my-version .
+docker push my-repo/memory-broker:my-version
 ```
 
 ## Observability
