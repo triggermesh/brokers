@@ -15,7 +15,7 @@ require (
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	knative.dev/eventing v0.35.0
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
-	sigs.k8s.io/controller-runtime v0.13.0
+	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -98,6 +98,6 @@ require (
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21 // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/component-base v0.25.0 // indirect
+	k8s.io/component-base v0.25.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 )
