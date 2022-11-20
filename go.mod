@@ -54,7 +54,7 @@ require (
 
 require (
 	github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.12.0
-	go.opencensus.io v0.23.0
+	go.opencensus.io v0.24.0
 )
 
 require (
