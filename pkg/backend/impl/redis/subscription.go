@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -52,6 +53,11 @@ func (s *subscription) start() {
 	exitLoop := false
 	go func() {
 		<-s.ctx.Done()
+
+		s.logger.Debugw("Waiting for last XReadGroup operation to finish before exiting subscription",
+			zap.String("group", s.group),
+			zap.String("instance", s.instance),
+			zap.String("stream", s.stream))
 		exitLoop = true
 	}()
 
@@ -60,7 +66,6 @@ func (s *subscription) start() {
 			// Check at the begining of each iteration if the exit loop flag has
 			// been signaled due to done context.
 			if exitLoop {
-
 				break
 			}
 
@@ -72,15 +77,19 @@ func (s *subscription) start() {
 				Consumer: s.instance,
 				Streams:  []string{s.stream, id},
 				Count:    1,
-				Block:    time.Hour,
-				NoAck:    false,
+				// Setting block low since cancelling the context
+				// does not force the read to finish, making the process slow
+				// to exit.
+				Block: 3 * time.Second,
+				NoAck: false,
 			}).Result()
 
 			if err != nil {
 				// Ignore errors when the blocking period ends without
 				// receiving any event, and errors when the context is
 				// canceled
-				if !strings.HasSuffix(err.Error(), "i/o timeout") &&
+				if !errors.Is(err, goredis.Nil) &&
+					!strings.HasSuffix(err.Error(), "i/o timeout") &&
 					err.Error() != "context canceled" {
 					s.logger.Errorw("Error reading CloudEvents from consumer group", zap.String("group", s.group), zap.Error(err))
 				}
@@ -147,7 +156,12 @@ func (s *subscription) start() {
 			}
 		}
 
-		// Close stoppedCh to singal external viewers that processing for this
+		s.logger.Debugw("Exited Redis subscription",
+			zap.String("group", s.group),
+			zap.String("instance", s.instance),
+			zap.String("stream", s.stream))
+
+		// Close stoppedCh to signal external viewers that processing for this
 		// subscription is no longer running.
 		close(s.stoppedCh)
 	}()

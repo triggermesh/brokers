@@ -231,6 +231,8 @@ func (s *redis) unsubscribe(name string) {
 	// Wait for the subscription to finish
 	select {
 	case <-sub.stoppedCh:
+		s.logger.Debugw("Graceful shutdown of subscription", zap.String("name", name))
+
 		// Clean exit.
 	case <-time.After(unsubscribeTimeout):
 		// Timed out, some events have not been delivered.
