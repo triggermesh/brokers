@@ -7,7 +7,7 @@ require (
 	github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a // indirect
 	github.com/cloudevents/sdk-go/v2 v2.12.0
 	github.com/fsnotify/fsnotify v1.5.4
-	github.com/go-redis/redis/v9 v9.0.0-beta.2
+	github.com/go-redis/redis/v9 v9.0.0-rc.1
 	github.com/google/uuid v1.3.0
 	github.com/rickb777/date v1.20.0
 	github.com/stretchr/testify v1.8.0
