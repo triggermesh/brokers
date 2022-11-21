@@ -3,7 +3,7 @@ module github.com/triggermesh/brokers
 go 1.19
 
 require (
-	github.com/alecthomas/kong v0.6.1
+	github.com/alecthomas/kong v0.7.1
 	github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a // indirect
 	github.com/cloudevents/sdk-go/v2 v2.12.0
 	github.com/fsnotify/fsnotify v1.5.4
