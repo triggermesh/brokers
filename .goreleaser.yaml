@@ -1,0 +1,51 @@
+dist: releases
+
+builds:
+  - id: memory-broker
+    main: ./cmd/memory-broker
+    binary: memory-broker
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+
+  - id: redis-broker
+    main: ./cmd/redis-broker
+    binary: redis-broker
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+
+archives:
+  - id: default
+    format: binary
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^Merge pull request"
