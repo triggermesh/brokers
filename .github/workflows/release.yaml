@@ -1,4 +1,4 @@
-name: release
+name: Binary releases
 
 on:
   push:

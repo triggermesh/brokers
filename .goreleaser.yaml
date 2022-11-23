@@ -4,6 +4,7 @@ builds:
   - id: memory-broker
     main: ./cmd/memory-broker
     binary: memory-broker
+    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
@@ -19,6 +20,7 @@ builds:
   - id: redis-broker
     main: ./cmd/redis-broker
     binary: redis-broker
+    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
