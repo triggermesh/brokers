@@ -7,7 +7,7 @@ require (
 	github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a // indirect
 	github.com/cloudevents/sdk-go/v2 v2.12.0
 	github.com/fsnotify/fsnotify v1.6.0
-	github.com/go-redis/redis/v9 v9.0.0-rc.1
+	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/google/uuid v1.3.0
 	github.com/rickb777/date v1.20.1
 	github.com/stretchr/testify v1.8.1
@@ -32,10 +32,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rickb777/plural v1.4.1 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/term v0.1.0 // indirect
+	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/term v0.2.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
