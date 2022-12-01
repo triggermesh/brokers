@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rickb777/date/period"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,9 +45,10 @@ type Globals struct {
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
-	Context  context.Context    `kong:"-"`
-	Logger   *zap.SugaredLogger `kong:"-"`
-	LogLevel zap.AtomicLevel    `kong:"-"`
+	Context          context.Context    `kong:"-"`
+	Logger           *zap.SugaredLogger `kong:"-"`
+	LogLevel         zap.AtomicLevel    `kong:"-"`
+	PollingFrequency time.Duration      `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -83,6 +85,15 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Kubernetes namespace must not be informed when no Secrets/ConfigMaps are watched.")
 	}
 
+	if s.ConfigPollingFrequency != "" {
+		p, err := period.Parse(s.ConfigPollingFrequency)
+		if err != nil {
+			msg = append(msg, fmt.Sprintf("Polling frequency cannot is not an ISO8601 duration: %v", err))
+		} else {
+			s.PollingFrequency = p.DurationApprox()
+		}
+	}
+
 	if len(msg) != 0 {
 		return fmt.Errorf(strings.Join(msg, " "))
 	}
@@ -97,7 +108,7 @@ func (s *Globals) Initialize() error {
 	defaultConfigApplied := false
 
 	switch {
-	case s.NeedsObservabilityConfigFileWatcher():
+	case s.NeedsObservabilityConfigFromFile():
 		// Read before starting the watcher to use it with the
 		// start routines.
 		cfg, err = observability.ReadFromFile(s.ObservabilityConfigPath)
@@ -218,20 +229,36 @@ func (s *Globals) UpdateLogLevel(cfg *observability.Config) {
 	}
 }
 
-func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
+func (s *Globals) NeedsBrokerConfigFromFile() bool {
 	// BrokerConfigPath has a default value, it will probably be informed even
 	// when Kubernetes secret is being used. For that reason we check if kubernetes
 	// is being used for the broker configuration.
 	return s.KubernetesBrokerConfigSecretName == ""
 }
 
-func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
+func (s *Globals) NeedsObservabilityConfigFromFile() bool {
 	return s.ObservabilityConfigPath != ""
 }
 
-func (s *Globals) NeedsFileWatcher() bool {
-	return s.NeedsBrokerConfigFileWatcher() || s.NeedsObservabilityConfigFileWatcher()
+func (s *Globals) NeedsConfigFromFile() bool {
+	return s.NeedsBrokerConfigFromFile() || s.NeedsObservabilityConfigFromFile()
 }
+
+func (s *Globals) NeedsFileWatcher() bool {
+	return s.NeedsConfigFromFile() && s.PollingFrequency == 0
+}
+
+func (s *Globals) NeedsFilePoller() bool {
+	return s.NeedsConfigFromFile() && s.PollingFrequency != 0
+}
+
+// func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
+// 	return s.NeedsObservabilityConfigFromFile() && s.PollingFrequency == 0
+// }
+
+// func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
+// 	return s.NeedsBrokerConfigFromFile() && s.PollingFrequency == 0
+// }
 
 func (s *Globals) NeedsKubernetesBrokerSecret() bool {
 	return s.KubernetesBrokerConfigSecretName != "" && s.KubernetesBrokerConfigSecretKey != ""

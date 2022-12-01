@@ -1,7 +1,7 @@
 // Copyright 2022 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-package watcher
+package poller
 
 import (
 	"context"
@@ -14,18 +14,18 @@ import (
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
-type WatcherCallback func(*cfgbroker.Config)
+type PollerCallback func(*cfgbroker.Config)
 
-type Watcher struct {
-	cfw    fs.CachedFileWatcher
+type Poller struct {
+	fsp    fs.Poller
 	path   string
 	logger *zap.SugaredLogger
 
 	config *cfgbroker.Config
-	cbs    []WatcherCallback
+	cbs    []PollerCallback
 }
 
-func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) (*Watcher, error) {
+func NewPoller(fsp fs.Poller, path string, logger *zap.SugaredLogger) (*Poller, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
@@ -35,39 +35,36 @@ func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger
 		return nil, fmt.Errorf("configuration path %q needs to be abstolute", path)
 	}
 
-	return &Watcher{
-		cfw:    cfw,
+	return &Poller{
+		fsp:    fsp,
 		path:   path,
 		logger: logger,
 	}, nil
 }
 
-func (cw *Watcher) AddCallback(cb WatcherCallback) {
+func (cw *Poller) AddCallback(cb PollerCallback) {
 	cw.cbs = append(cw.cbs, cb)
 }
 
-func (cw *Watcher) GetConfig() *cfgbroker.Config {
+func (cw *Poller) GetConfig() *cfgbroker.Config {
 	return cw.config
 }
 
-func (cw *Watcher) Start(ctx context.Context) error {
-	err := cw.cfw.Add(cw.path, cw.update)
+func (cw *Poller) Start(ctx context.Context) error {
+	err := cw.fsp.Add(cw.path, cw.update)
 	if err != nil {
 		return err
 	}
 
-	// Perform a first call to the callback with the contents of the config
-	// file. Otherwise the callback won't be called until a modification
-	// occurs.
-	if cfg, err := cw.cfw.GetContent(cw.path); cfg != nil && err == nil {
+	if cfg, err := cw.fsp.GetContent(cw.path); cfg != nil && err == nil {
 		cw.update(cfg)
 	}
 
-	cw.cfw.Start(ctx)
+	cw.fsp.Start(ctx)
 	return nil
 }
 
-func (cw *Watcher) update(content []byte) {
+func (cw *Poller) update(content []byte) {
 	if len(content) == 0 {
 		// Discard file events that do not inform content.
 		cw.logger.Debug(fmt.Sprintf("Received event with empty contents for %s", cw.path))

@@ -18,6 +18,7 @@ type PollerCallback func(content []byte)
 type Poller interface {
 	Add(path string, cb PollerCallback) error
 	Start(ctx context.Context)
+	GetContent(path string) ([]byte, error)
 }
 
 type pollFile struct {
@@ -44,6 +45,18 @@ func NewPoller(period string, logger *zap.SugaredLogger) (Poller, error) {
 	}, nil
 }
 
+func (p *poller) GetContent(path string) ([]byte, error) {
+	p.m.RLock()
+	defer p.m.RUnlock()
+
+	pf, ok := p.polledFiles[path]
+	if !ok {
+		return nil, fmt.Errorf("file %q is not being polled", path)
+	}
+
+	return pf.cachedContents, nil
+}
+
 func (p *poller) Add(path string, cb PollerCallback) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -66,6 +79,9 @@ func (p *poller) Add(path string, cb PollerCallback) error {
 	pf := p.polledFiles[path]
 	pf.cbs = append(pf.cbs, cb)
 	p.polledFiles[path] = pf
+
+	// force first polling
+	p.poll()
 
 	return nil
 }
