@@ -33,7 +33,8 @@ type Globals struct {
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 	BrokerName              string `help:"Broker instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${hostname}"`
-	// InstanceID              string `help:"Running process instance identifier. When running at Kubernetes should be set to the Pod name" env:"INSTANCE_ID" default:"${unique_id}"`
+
+	ConfigPollingFrequency string `help:"Freqency polling for the configuration files using ISO8601. A zero duration disables configuration by polling." env:"CONFIG_POLLING_FREQUENCY" default:"PT0S"`
 
 	// Kubernetes parameters
 	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
