@@ -49,7 +49,7 @@ func New(inctx context.Context, logger *zap.SugaredLogger, be backend.Interface)
 }
 
 func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
-	m.logger.Debug("Updating configuration")
+	m.logger.Info("Updating subscriptions configuration")
 	m.m.Lock()
 	defer m.m.Unlock()
 

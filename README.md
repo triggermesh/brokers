@@ -196,7 +196,8 @@ kubernetes-namespace      | KUBERNETES_NAMESPACE            | | Namespace where 
 kubernetes-broker-config-secret-name  | KUBERNETES_BROKER_CONFIG_SECRET_NAME | | Secret object name that contains the broker configuration.
 kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | | Secret object key that contains the broker configuration.
 kubernetes-observability-config-map-name  | KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
-observability-metrics-domain          | OBSERVABILITY_METRICS_DOMAIN      | Domain to be used for some metrics reporters.
+config-polling-period                 | CONFIG_POLLING_PERIOD    | PT0S | ISO8601 duration for config polling. Disabled if PT0S. Enabling it will disable the file watcher.
+observability-metrics-domain          | OBSERVABILITY_METRICS_DOMAIN  | triggermesh.io/eventing | Domain to be used for some metrics reporters.
 redis.address             | REDIS_ADDRESS                   | 0.0.0.0:6379 | Redis address.
 redis.username            | REDIS_USERNAME                  | | Redis username.
 redis.password            | REDIS_PASSWORD                  | | Redis password.

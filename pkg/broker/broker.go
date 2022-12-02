@@ -18,6 +18,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	"github.com/triggermesh/brokers/pkg/common/kubernetes/controller"
+	cfgbpoller "github.com/triggermesh/brokers/pkg/config/broker/poller"
 	cfgbwatcher "github.com/triggermesh/brokers/pkg/config/broker/watcher"
 	cfgowatcher "github.com/triggermesh/brokers/pkg/config/observability/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
@@ -40,8 +41,10 @@ type Instance struct {
 	subscription *subscriptions.Manager
 	bcw          *cfgbwatcher.Watcher
 	ocw          *cfgowatcher.Watcher
-	km           *controller.Manager
-	status       Status
+	bcp          *cfgbpoller.Poller
+	// ocp          *cfgopoller.Poller
+	km     *controller.Manager
+	status Status
 
 	logger *zap.SugaredLogger
 }
@@ -90,17 +93,17 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
 		}
 
-		if globals.NeedsBrokerConfigFileWatcher() {
+		if globals.NeedsBrokerConfigFromFile() {
 			globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
 			bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
 			if err != nil {
-				return nil, fmt.Errorf("error adding broker watcher for %q: %w", globals.ObservabilityConfigPath, err)
+				return nil, fmt.Errorf("error adding broker watcher for %q: %w", configPath, err)
 			}
 
 			broker.bcw = bcfgw
 		}
 
-		if globals.NeedsObservabilityConfigFileWatcher() {
+		if globals.NeedsObservabilityConfigFromFile() {
 			var ocfgw *cfgowatcher.Watcher
 			if globals.ObservabilityConfigPath != "" {
 				obsCfgPath, err := filepath.Abs(globals.ObservabilityConfigPath)
@@ -147,6 +150,30 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		broker.km = km
+	}
+
+	if globals.NeedsFilePoller() {
+		p, err := fs.NewPoller(globals.ConfigPollingPeriod, globals.Logger.Named("poller"))
+		if err != nil {
+			return nil, fmt.Errorf("error creating file poller: %w", err)
+		}
+
+		if globals.NeedsBrokerConfigFromFile() {
+			configPath, err := filepath.Abs(globals.BrokerConfigPath)
+			if err != nil {
+				return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
+			}
+
+			globals.Logger.Debugw("Creating poller for broker configuration", zap.String("file", configPath))
+			bcfgp, err := cfgbpoller.NewPoller(p, configPath, globals.Logger.Named("cfgpoller"))
+			if err != nil {
+				return nil, fmt.Errorf("error adding broker poller for %q: %w", configPath, err)
+			}
+
+			broker.bcp = bcfgp
+		}
+
+		// TODO add observability poller
 	}
 
 	return broker, nil
@@ -213,6 +240,21 @@ func (i *Instance) Start(inctx context.Context) error {
 		if err = i.ocw.Start(ctx); err != nil {
 			return fmt.Errorf("could not start observability configuration watcher: %w", err)
 		}
+	}
+
+	if i.bcp != nil {
+		i.logger.Debug("Adding config poller callbacks")
+		i.bcp.AddCallback(i.ingest.UpdateFromConfig)
+		i.bcp.AddCallback(i.subscription.UpdateFromConfig)
+
+		// Start the configuration poller for brokers.
+		// There is no need to add it to the wait group
+		// since it cleanly exits when context is done.
+		i.logger.Debug("Starting broker configuration watcher")
+		if err = i.bcp.Start(ctx); err != nil {
+			return fmt.Errorf("could not start broker configuration poller: %w", err)
+		}
+
 	}
 
 	// Start controller only if kubernetes informers are configured
