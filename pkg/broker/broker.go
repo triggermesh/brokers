@@ -79,7 +79,7 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		logger: globals.Logger.Named("broker"),
 	}
 
-	if globals.NeedsFileWatcher() {
+	if globals.ConfigMethod == cmd.ConfigMethodFileWatcher {
 		// The ConfigWatcher will read the configfile and call registered
 		// callbacks upon start and everytime the configuration file
 		// is updated.
@@ -93,17 +93,17 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
 		}
 
-		if globals.NeedsBrokerConfigFromFile() {
-			globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
-			bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
-			if err != nil {
-				return nil, fmt.Errorf("error adding broker watcher for %q: %w", configPath, err)
-			}
-
-			broker.bcw = bcfgw
+		// if globals.NeedsBrokerConfigFromFile() {
+		globals.Logger.Debugw("Creating watcher for broker configuration", zap.String("file", configPath))
+		bcfgw, err := cfgbwatcher.NewWatcher(cfw, configPath, globals.Logger.Named("cgfwatch"))
+		if err != nil {
+			return nil, fmt.Errorf("error adding broker watcher for %q: %w", configPath, err)
 		}
 
-		if globals.NeedsObservabilityConfigFromFile() {
+		broker.bcw = bcfgw
+		// }
+
+		if globals.ObservabilityConfigPath != "" {
 			var ocfgw *cfgowatcher.Watcher
 			if globals.ObservabilityConfigPath != "" {
 				obsCfgPath, err := filepath.Abs(globals.ObservabilityConfigPath)
@@ -124,24 +124,24 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 	}
 
-	if globals.NeedsKubernetesInformer() {
+	if globals.ConfigMethod == cmd.ConfigMethodKubernetesSecretMapWatcher {
 		km, err := controller.NewManager(globals.KubernetesNamespace, globals.Logger.Named("controller"))
 		if err != nil {
 			return nil, fmt.Errorf("error creating kubernetes controller manager: %w", err)
 		}
 
-		if globals.NeedsKubernetesBrokerSecret() {
-			if err = km.AddSecretControllerForBrokerConfig(
-				globals.KubernetesBrokerConfigSecretName,
-				globals.KubernetesBrokerConfigSecretKey); err != nil {
-				return nil, fmt.Errorf("error adding broker Secret reconciler to controller: %w", err)
-			}
-
-			km.AddSecretCallbackForBrokerConfig(i.UpdateFromConfig)
-			km.AddSecretCallbackForBrokerConfig(sm.UpdateFromConfig)
+		//if globals.NeedsKubernetesBrokerSecret() {
+		if err = km.AddSecretControllerForBrokerConfig(
+			globals.KubernetesBrokerConfigSecretName,
+			globals.KubernetesBrokerConfigSecretKey); err != nil {
+			return nil, fmt.Errorf("error adding broker Secret reconciler to controller: %w", err)
 		}
 
-		if globals.NeedsKubernetesObservabilityConfigMap() {
+		km.AddSecretCallbackForBrokerConfig(i.UpdateFromConfig)
+		km.AddSecretCallbackForBrokerConfig(sm.UpdateFromConfig)
+		//}
+
+		if globals.KubernetesObservabilityConfigMapName != "" {
 			if err = km.AddConfigMapControllerForObservability(globals.KubernetesObservabilityConfigMapName); err != nil {
 				return nil, fmt.Errorf("error adding observability ConfigMap reconciler to controller: %w", err)
 			}
@@ -152,29 +152,30 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		broker.km = km
 	}
 
-	if globals.NeedsFilePoller() {
+	if globals.ConfigMethod == cmd.ConfigMethodFilePoller {
 		p, err := fs.NewPoller(globals.ConfigPollingPeriod, globals.Logger.Named("poller"))
 		if err != nil {
 			return nil, fmt.Errorf("error creating file poller: %w", err)
 		}
 
-		if globals.NeedsBrokerConfigFromFile() {
-			configPath, err := filepath.Abs(globals.BrokerConfigPath)
-			if err != nil {
-				return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
-			}
-
-			globals.Logger.Debugw("Creating poller for broker configuration", zap.String("file", configPath))
-			bcfgp, err := cfgbpoller.NewPoller(p, configPath, globals.Logger.Named("cfgpoller"))
-			if err != nil {
-				return nil, fmt.Errorf("error adding broker poller for %q: %w", configPath, err)
-			}
-
-			broker.bcp = bcfgp
+		// 		if globals.NeedsBrokerConfigFromFile() {
+		configPath, err := filepath.Abs(globals.BrokerConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving to absolute path %q: %w", globals.BrokerConfigPath, err)
 		}
 
-		// TODO add observability poller
+		globals.Logger.Debugw("Creating poller for broker configuration", zap.String("file", configPath))
+		bcfgp, err := cfgbpoller.NewPoller(p, configPath, globals.Logger.Named("cfgpoller"))
+		if err != nil {
+			return nil, fmt.Errorf("error adding broker poller for %q: %w", configPath, err)
+		}
+
+		broker.bcp = bcfgp
 	}
+
+	// TODO add observability poller
+
+	// }
 
 	return broker, nil
 }
