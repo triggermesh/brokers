@@ -35,7 +35,7 @@ type Globals struct {
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 	BrokerName              string `help:"Broker instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${hostname}"`
 
-	ConfigPollingFrequency string `help:"Freqency polling for the configuration files using ISO8601. A zero duration disables configuration by polling." env:"CONFIG_POLLING_FREQUENCY" default:"PT0S"`
+	ConfigPollingPeriod string `help:"Period for polling the configuration files using ISO8601. A zero duration disables configuration by polling." env:"CONFIG_POLLING_PERIOD" default:"PT0S"`
 
 	// Kubernetes parameters
 	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
@@ -85,8 +85,8 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Kubernetes namespace must not be informed when no Secrets/ConfigMaps are watched.")
 	}
 
-	if s.ConfigPollingFrequency != "" {
-		p, err := period.Parse(s.ConfigPollingFrequency)
+	if s.ConfigPollingPeriod != "" {
+		p, err := period.Parse(s.ConfigPollingPeriod)
 		if err != nil {
 			msg = append(msg, fmt.Sprintf("Polling frequency cannot is not an ISO8601 duration: %v", err))
 		} else {

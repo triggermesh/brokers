@@ -27,7 +27,7 @@ type pollFile struct {
 }
 
 type poller struct {
-	polledFiles map[string]pollFile
+	polledFiles map[string]*pollFile
 
 	period dateperiod.Period
 	m      sync.RWMutex
@@ -41,7 +41,9 @@ func NewPoller(period string, logger *zap.SugaredLogger) (Poller, error) {
 		return nil, fmt.Errorf("could not parse %q as polling period: %w", period, err)
 	}
 	return &poller{
-		period: p,
+		period:      p,
+		logger:      logger,
+		polledFiles: map[string]*pollFile{},
 	}, nil
 }
 
@@ -72,7 +74,8 @@ func (p *poller) Add(path string, cb PollerCallback) error {
 
 	p.logger.Infow("Adding file to poller", zap.String("file", path))
 	if _, ok := p.polledFiles[path]; !ok {
-		p.polledFiles[path] = pollFile{cbs: []PollerCallback{cb}}
+
+		p.polledFiles[path] = &pollFile{cbs: []PollerCallback{cb}}
 		return nil
 	}
 
@@ -119,6 +122,8 @@ func (p *poller) poll() {
 		}
 
 		if !bytes.Equal(pf.cachedContents, b) {
+			p.logger.Infow("Existing", zap.String("contents", string(pf.cachedContents)))
+			p.logger.Infow("New", zap.String("contents", string(b)))
 			pf.cachedContents = b
 			for _, cb := range pf.cbs {
 				cb(b)

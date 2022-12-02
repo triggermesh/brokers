@@ -153,7 +153,7 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	}
 
 	if globals.NeedsFilePoller() {
-		p, err := fs.NewPoller(globals.ConfigPollingFrequency, globals.Logger.Named("poller"))
+		p, err := fs.NewPoller(globals.ConfigPollingPeriod, globals.Logger.Named("poller"))
 		if err != nil {
 			return nil, fmt.Errorf("error creating file poller: %w", err)
 		}
