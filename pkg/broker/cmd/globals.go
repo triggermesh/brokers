@@ -61,7 +61,7 @@ type Globals struct {
 	ConfigMethod  ConfigMethod       `kong:"-"`
 }
 
-func (s *Globals) Validate() error {
+func (s *Globals) validate() error {
 	msg := []string{}
 
 	// We need to sort out if ConfigPollingPeriod is not 0 before
@@ -96,7 +96,7 @@ func (s *Globals) Validate() error {
 		// Local file config path should be either empty or the default, which is considered empty
 		// when Kubernetes configuration is informed.
 		if s.BrokerConfigPath != "" && s.BrokerConfigPath != "/etc/triggermesh/broker.conf" {
-			msg = append(msg, "Cannot Broker file for configuration when a Kubernetes Secret is used for the broker.")
+			msg = append(msg, "Cannot use Broker file for configuration when a Kubernetes Secret is used for the broker.")
 		}
 
 		// Local file config path should be either empty or the default, which is considered empty
@@ -136,9 +136,13 @@ func (s *Globals) Validate() error {
 }
 
 func (s *Globals) Initialize() error {
+	err := s.validate()
+	if err != nil {
+		return err
+	}
+
 	var cfg *observability.Config
 	var l *zap.Logger
-	var err error
 	defaultConfigApplied := false
 
 	switch {
