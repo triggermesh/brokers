@@ -11,17 +11,17 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/triggermesh/brokers/pkg/common/fs"
-	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/config/observability"
 )
 
-type PollerCallback func(*cfgbroker.Config)
+type PollerCallback func(*observability.Config)
 
 type Poller struct {
 	fsp    fs.Poller
 	path   string
 	logger *zap.SugaredLogger
 
-	config *cfgbroker.Config
+	config *observability.Config
 	cbs    []PollerCallback
 }
 
@@ -46,7 +46,7 @@ func (cw *Poller) AddCallback(cb PollerCallback) {
 	cw.cbs = append(cw.cbs, cb)
 }
 
-func (cw *Poller) GetConfig() *cfgbroker.Config {
+func (cw *Poller) GetConfig() *observability.Config {
 	return cw.config
 }
 
@@ -71,9 +71,9 @@ func (cw *Poller) update(content []byte) {
 		return
 	}
 
-	cfg, err := cfgbroker.Parse(string(content))
+	cfg, err := observability.Parse(content)
 	if err != nil {
-		cw.logger.Errorw(fmt.Sprintf("Error parsing config from %s", cw.path), zap.Error(err))
+		cw.logger.Errorw(fmt.Sprintf("Contents for %s are not valid", cw.path), zap.Error(err))
 		return
 	}
 

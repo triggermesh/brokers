@@ -54,11 +54,11 @@ type Globals struct {
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
-	Context          context.Context    `kong:"-"`
-	Logger           *zap.SugaredLogger `kong:"-"`
-	LogLevel         zap.AtomicLevel    `kong:"-"`
-	PollingFrequency time.Duration      `kong:"-"`
-	ConfigMethod     ConfigMethod       `kong:"-"`
+	Context       context.Context    `kong:"-"`
+	Logger        *zap.SugaredLogger `kong:"-"`
+	LogLevel      zap.AtomicLevel    `kong:"-"`
+	PollingPeriod time.Duration      `kong:"-"`
+	ConfigMethod  ConfigMethod       `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -71,7 +71,7 @@ func (s *Globals) Validate() error {
 		if err != nil {
 			msg = append(msg, fmt.Sprintf("Polling frequency cannot is not an ISO8601 duration: %v", err))
 		} else {
-			s.PollingFrequency = p.DurationApprox()
+			s.PollingPeriod = p.DurationApprox()
 		}
 	}
 
@@ -106,7 +106,7 @@ func (s *Globals) Validate() error {
 		}
 
 	case s.BrokerConfigPath != "":
-		if s.PollingFrequency == 0 {
+		if s.PollingPeriod == 0 {
 			s.ConfigMethod = ConfigMethodFileWatcher
 		} else {
 			s.ConfigMethod = ConfigMethodFilePoller
@@ -262,46 +262,3 @@ func (s *Globals) UpdateLogLevel(cfg *observability.Config) {
 		s.LogLevel.SetLevel(level)
 	}
 }
-
-// func (s *Globals) NeedsBrokerConfigFromFile() bool {
-// 	// BrokerConfigPath has a default value, it will probably be informed even
-// 	// when Kubernetes secret is being used. For that reason we check if kubernetes
-// 	// is being used for the broker configuration.
-// 	return s.KubernetesBrokerConfigSecretName == ""
-// }
-
-// func (s *Globals) NeedsObservabilityConfigFromFile() bool {
-// 	return s.ObservabilityConfigPath != ""
-// }
-
-// func (s *Globals) NeedsConfigFromFile() bool {
-// 	return s.NeedsBrokerConfigFromFile() || s.NeedsObservabilityConfigFromFile()
-// }
-
-// func (s *Globals) NeedsFileWatcher() bool {
-// 	return s.NeedsConfigFromFile() && s.PollingFrequency == 0
-// }
-
-// func (s *Globals) NeedsFilePoller() bool {
-// 	return s.NeedsConfigFromFile() && s.PollingFrequency != 0
-// }
-
-// func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
-// 	return s.NeedsObservabilityConfigFromFile() && s.PollingFrequency == 0
-// }
-
-// func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
-// 	return s.NeedsBrokerConfigFromFile() && s.PollingFrequency == 0
-// }
-
-// func (s *Globals) NeedsKubernetesBrokerSecret() bool {
-// 	return s.KubernetesBrokerConfigSecretName != "" && s.KubernetesBrokerConfigSecretKey != ""
-// }
-
-// func (s *Globals) NeedsKubernetesObservabilityConfigMap() bool {
-// 	return s.KubernetesObservabilityConfigMapName != ""
-// }
-
-// func (s *Globals) NeedsKubernetesInformer() bool {
-// 	return s.NeedsKubernetesBrokerSecret() || s.NeedsKubernetesObservabilityConfigMap()
-// }

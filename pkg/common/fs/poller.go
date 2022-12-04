@@ -62,7 +62,7 @@ func (p *poller) GetContent(path string) ([]byte, error) {
 func (p *poller) Add(path string, cb PollerCallback) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+		return fmt.Errorf("error resolving to absolute path %q: %w", path, err)
 	}
 
 	if absPath != path {
