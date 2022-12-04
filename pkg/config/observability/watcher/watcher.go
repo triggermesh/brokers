@@ -28,7 +28,7 @@ type Watcher struct {
 func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) (*Watcher, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+		return nil, fmt.Errorf("error resolving to absolute path %q: %w", path, err)
 	}
 
 	if absPath != path {
@@ -73,9 +73,7 @@ func (cw *Watcher) update(content []byte) {
 		return
 	}
 
-	// cfg := &observability.Config{}
 	cfg, err := observability.Parse(content)
-	//if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
 	if err != nil {
 		cw.logger.Errorw(fmt.Sprintf("Contents for %s are not valid", cw.path), zap.Error(err))
 		return

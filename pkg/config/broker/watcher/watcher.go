@@ -28,7 +28,7 @@ type Watcher struct {
 func NewWatcher(cfw fs.CachedFileWatcher, path string, logger *zap.SugaredLogger) (*Watcher, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+		return nil, fmt.Errorf("error resolving to absolute path %q: %w", path, err)
 	}
 
 	if absPath != path {

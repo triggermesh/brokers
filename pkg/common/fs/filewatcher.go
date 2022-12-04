@@ -52,7 +52,7 @@ func NewWatcher(logger *zap.SugaredLogger) (FileWatcher, error) {
 func (cw *fileWatcher) Add(path string, cb WatchCallback) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("error resolving to absoluthe path %q: %w", path, err)
+		return fmt.Errorf("error resolving to absolute path %q: %w", path, err)
 	}
 
 	if absPath != path {

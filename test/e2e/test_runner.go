@@ -117,6 +117,7 @@ func (r *BrokerTestRunner) AddBroker(name string, port int, backend backend.Inte
 		Port:             port,
 		BrokerConfigPath: cfgfile.Name(),
 		Context:          r.mainCtx,
+		ConfigMethod:     pkgcmd.ConfigMethodFileWatcher,
 	}
 
 	i, err := broker.NewInstance(g, backend)

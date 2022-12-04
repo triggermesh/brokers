@@ -29,6 +29,15 @@ const (
 	metricsComponent = "broker"
 )
 
+type ConfigMethod int
+
+const (
+	ConfigMethodUnknown = iota
+	ConfigMethodFileWatcher
+	ConfigMethodFilePoller
+	ConfigMethodKubernetesSecretMapWatcher
+)
+
 type Globals struct {
 	BrokerConfigPath        string `help:"Path to broker configuration file." env:"BROKER_CONFIG_PATH" default:"/etc/triggermesh/broker.conf"`
 	ObservabilityConfigPath string `help:"Path to observability configuration file." env:"OBSERVABILITY_CONFIG_PATH"`
@@ -45,53 +54,78 @@ type Globals struct {
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
-	Context          context.Context    `kong:"-"`
-	Logger           *zap.SugaredLogger `kong:"-"`
-	LogLevel         zap.AtomicLevel    `kong:"-"`
-	PollingFrequency time.Duration      `kong:"-"`
+	Context       context.Context    `kong:"-"`
+	Logger        *zap.SugaredLogger `kong:"-"`
+	LogLevel      zap.AtomicLevel    `kong:"-"`
+	PollingPeriod time.Duration      `kong:"-"`
+	ConfigMethod  ConfigMethod       `kong:"-"`
 }
 
-func (s *Globals) Validate() error {
+func (s *Globals) validate() error {
 	msg := []string{}
 
-	if s.BrokerConfigPath == "" &&
-		(s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
-		msg = append(msg, "Broker configuration path or ConfigMap must be informed.")
-	}
-
-	kubeBroker := false
-	if s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "" {
-		kubeBroker = true
-	}
-
-	if kubeBroker && (s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
-		msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
-	}
-
-	kubeObservability := false
-	if s.KubernetesObservabilityConfigMapName != "" {
-		kubeObservability = true
-	}
-
-	if kubeObservability && s.ObservabilityConfigPath != "" {
-		msg = append(msg, "Observability config must use either a file path or a ConfigMap.")
-	}
-
-	if (kubeBroker || kubeObservability) && s.KubernetesNamespace == "" {
-		msg = append(msg, "Kubernetes namespace must be informed.")
-	}
-
-	if !kubeBroker && !kubeObservability && s.KubernetesNamespace != "" {
-		msg = append(msg, "Kubernetes namespace must not be informed when no Secrets/ConfigMaps are watched.")
-	}
-
+	// We need to sort out if ConfigPollingPeriod is not 0 before
+	// finding out the config method
 	if s.ConfigPollingPeriod != "" {
 		p, err := period.Parse(s.ConfigPollingPeriod)
 		if err != nil {
 			msg = append(msg, fmt.Sprintf("Polling frequency cannot is not an ISO8601 duration: %v", err))
 		} else {
-			s.PollingFrequency = p.DurationApprox()
+			s.PollingPeriod = p.DurationApprox()
 		}
+	}
+
+	// Broker config must be configured
+	if s.BrokerConfigPath == "" &&
+		(s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
+		msg = append(msg, "Broker configuration path or Kubernetes Secret must be informed.")
+	}
+
+	switch {
+	case s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "":
+		s.ConfigMethod = ConfigMethodKubernetesSecretMapWatcher
+
+		if s.KubernetesNamespace == "" {
+			msg = append(msg, "Kubernetes namespace must be informed.")
+		}
+
+		if s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "" {
+			msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
+		}
+
+		// Local file config path should be either empty or the default, which is considered empty
+		// when Kubernetes configuration is informed.
+		if s.BrokerConfigPath != "" && s.BrokerConfigPath != "/etc/triggermesh/broker.conf" {
+			msg = append(msg, "Cannot use Broker file for configuration when a Kubernetes Secret is used for the broker.")
+		}
+
+		// Local file config path should be either empty or the default, which is considered empty
+		// when Kubernetes configuration is informed.
+		if s.ObservabilityConfigPath != "" {
+			msg = append(msg, "Only one of Kubernetes Secret or local file configuration must be informed.")
+		}
+
+	case s.BrokerConfigPath != "":
+		if s.PollingPeriod == 0 {
+			s.ConfigMethod = ConfigMethodFileWatcher
+		} else {
+			s.ConfigMethod = ConfigMethodFilePoller
+		}
+
+		if s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "" {
+			msg = append(msg, "Cannot inform Broker Secret and File for broker configuration.")
+		}
+
+		if s.KubernetesObservabilityConfigMapName != "" {
+			msg = append(msg, "Cannot inform Observability ConfigMap when a file is used for broker configuration.")
+		}
+
+		if s.KubernetesNamespace != "" {
+			msg = append(msg, "Kubernetes namespace must not be informed when local File configuration is used.")
+		}
+
+	default:
+		msg = append(msg, "Either Kubernetes Secret or local file configuration must be informed.")
 	}
 
 	if len(msg) != 0 {
@@ -102,13 +136,17 @@ func (s *Globals) Validate() error {
 }
 
 func (s *Globals) Initialize() error {
+	err := s.validate()
+	if err != nil {
+		return err
+	}
+
 	var cfg *observability.Config
 	var l *zap.Logger
-	var err error
 	defaultConfigApplied := false
 
 	switch {
-	case s.NeedsObservabilityConfigFromFile():
+	case s.ObservabilityConfigPath != "":
 		// Read before starting the watcher to use it with the
 		// start routines.
 		cfg, err = observability.ReadFromFile(s.ObservabilityConfigPath)
@@ -117,7 +155,7 @@ func (s *Globals) Initialize() error {
 			defaultConfigApplied = true
 		}
 
-	case s.NeedsKubernetesObservabilityConfigMap():
+	case s.KubernetesObservabilityConfigMapName != "":
 		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
 		if err != nil {
 			return err
@@ -227,54 +265,4 @@ func (s *Globals) UpdateLogLevel(cfg *observability.Config) {
 		s.Logger.Infof("Updating logging level from %v to %v.", s.LogLevel.Level(), level)
 		s.LogLevel.SetLevel(level)
 	}
-}
-
-func (s *Globals) NeedsBrokerConfigFromFile() bool {
-	// BrokerConfigPath has a default value, it will probably be informed even
-	// when Kubernetes secret is being used. For that reason we check if kubernetes
-	// is being used for the broker configuration.
-	return s.KubernetesBrokerConfigSecretName == ""
-}
-
-func (s *Globals) NeedsObservabilityConfigFromFile() bool {
-	return s.ObservabilityConfigPath != ""
-}
-
-func (s *Globals) NeedsConfigFromFile() bool {
-	return s.NeedsBrokerConfigFromFile() || s.NeedsObservabilityConfigFromFile()
-}
-
-func (s *Globals) NeedsFileWatcher() bool {
-	return s.NeedsConfigFromFile() && s.PollingFrequency == 0
-}
-
-func (s *Globals) NeedsFilePoller() bool {
-	return s.NeedsConfigFromFile() && s.PollingFrequency != 0
-}
-
-// func (s *Globals) NeedsObservabilityConfigFileWatcher() bool {
-// 	return s.NeedsObservabilityConfigFromFile() && s.PollingFrequency == 0
-// }
-
-// func (s *Globals) NeedsBrokerConfigFileWatcher() bool {
-// 	return s.NeedsBrokerConfigFromFile() && s.PollingFrequency == 0
-// }
-
-func (s *Globals) NeedsKubernetesBrokerSecret() bool {
-	return s.KubernetesBrokerConfigSecretName != "" && s.KubernetesBrokerConfigSecretKey != ""
-}
-
-func (s *Globals) NeedsKubernetesObservabilityConfigMap() bool {
-	return s.KubernetesObservabilityConfigMapName != ""
-}
-
-func (s *Globals) NeedsKubernetesInformer() bool {
-	return s.NeedsKubernetesBrokerSecret() || s.NeedsKubernetesObservabilityConfigMap()
-}
-
-func (s *Globals) IsKubernetes() bool {
-	return s.KubernetesNamespace != "" ||
-		s.NeedsKubernetesBrokerSecret() ||
-		s.NeedsKubernetesInformer() ||
-		s.NeedsKubernetesObservabilityConfigMap()
 }
