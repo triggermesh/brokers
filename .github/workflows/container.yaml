@@ -41,7 +41,7 @@ jobs:
           images: gcr.io/triggermesh/memory-broker
           tags: |
             type=semver,pattern={{raw}}
-            latest
+            type=sha
 
       - name: Build and push memory-broker image
         uses: docker/build-push-action@v3
@@ -59,7 +59,7 @@ jobs:
           images: gcr.io/triggermesh/redis-broker
           tags: |
             type=semver,pattern={{raw}}
-            latest
+            type=sha
 
       - name: Build and push redis-broker image
         uses: docker/build-push-action@v3
