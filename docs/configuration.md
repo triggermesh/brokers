@@ -97,6 +97,9 @@ metrics.reporting-period-seconds: 30
 
 ## Inline Broker Configuration
 
+For environments where there is no disk for running the broker, a static configuration can be specified using either the command line argument `broker-config` or the environment variable `BROKER_CONFIG`.
+
+```console
 go run ./cmd/redis-broker start \
   --redis.address "0.0.0.0:6379" \
   --broker-config '
@@ -120,3 +123,4 @@ go run ./cmd/redis-broker start \
     }
   }
 }'
+```
