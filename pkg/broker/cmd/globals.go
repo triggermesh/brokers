@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -27,6 +28,8 @@ import (
 
 const (
 	metricsComponent = "broker"
+
+	defaultBrokerConfigPath = "/etc/triggermesh/broker.conf"
 )
 
 type ConfigMethod int
@@ -36,6 +39,7 @@ const (
 	ConfigMethodFileWatcher
 	ConfigMethodFilePoller
 	ConfigMethodKubernetesSecretMapWatcher
+	ConfigMethodInline
 )
 
 type Globals struct {
@@ -44,7 +48,12 @@ type Globals struct {
 	Port                    int    `help:"HTTP Port to listen for CloudEvents." env:"PORT" default:"8080"`
 	BrokerName              string `help:"Broker instance name. When running at Kubernetes should be set to RedisBroker name" env:"BROKER_NAME" default:"${hostname}"`
 
+	// Config Polling is an alternative to the default file watcher for config files.
 	ConfigPollingPeriod string `help:"Period for polling the configuration files using ISO8601. A zero duration disables configuration by polling." env:"CONFIG_POLLING_PERIOD" default:"PT0S"`
+
+	// Inline Configuration
+	BrokerConfig        string `help:"JSON representation of broker configuration." env:"BROKER_CONFIG"`
+	ObservabilityConfig string `help:"JSON representation of observability configuration." env:"OBSERVABILITY_CONFIG"`
 
 	// Kubernetes parameters
 	KubernetesNamespace                  string `help:"Namespace where the broker is running." env:"KUBERNETES_NAMESPACE"`
@@ -69,7 +78,7 @@ func (s *Globals) validate() error {
 	if s.ConfigPollingPeriod != "" {
 		p, err := period.Parse(s.ConfigPollingPeriod)
 		if err != nil {
-			msg = append(msg, fmt.Sprintf("Polling frequency cannot is not an ISO8601 duration: %v", err))
+			msg = append(msg, fmt.Sprintf("Polling frequency is not an ISO8601 duration: %v", err))
 		} else {
 			s.PollingPeriod = p.DurationApprox()
 		}
@@ -77,8 +86,9 @@ func (s *Globals) validate() error {
 
 	// Broker config must be configured
 	if s.BrokerConfigPath == "" &&
-		(s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") {
-		msg = append(msg, "Broker configuration path or Kubernetes Secret must be informed.")
+		(s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "") &&
+		s.BrokerConfig == "" {
+		msg = append(msg, "Broker configuration path, Kubernetes Secret, or inline configuration must be informed.")
 	}
 
 	switch {
@@ -95,15 +105,29 @@ func (s *Globals) validate() error {
 
 		// Local file config path should be either empty or the default, which is considered empty
 		// when Kubernetes configuration is informed.
-		if s.BrokerConfigPath != "" && s.BrokerConfigPath != "/etc/triggermesh/broker.conf" {
+		if s.BrokerConfigPath != "" && s.BrokerConfigPath != defaultBrokerConfigPath {
 			msg = append(msg, "Cannot use Broker file for configuration when a Kubernetes Secret is used for the broker.")
 		}
 
 		// Local file config path should be either empty or the default, which is considered empty
 		// when Kubernetes configuration is informed.
 		if s.ObservabilityConfigPath != "" {
-			msg = append(msg, "Only one of Kubernetes Secret or local file configuration must be informed.")
+			msg = append(msg, "Local file observability configuration cannot be used along with the Kubernetes Secret configuration.")
 		}
+
+		if s.BrokerConfig != "" || s.ObservabilityConfig != "" {
+			msg = append(msg, "Inline config cannot be used along with the Kubernetes Secret configuration.")
+		}
+
+	case s.BrokerConfig != "":
+		// Local file config path should be either empty or the default, which is considered empty
+		// when Kubernetes configuration is informed.
+		if s.BrokerConfigPath != "" && s.BrokerConfigPath != defaultBrokerConfigPath {
+			msg = append(msg, "Inline config cannot be used along with local file configuration.")
+			break
+		}
+
+		s.ConfigMethod = ConfigMethodInline
 
 	case s.BrokerConfigPath != "":
 		if s.PollingPeriod == 0 {
@@ -124,11 +148,16 @@ func (s *Globals) validate() error {
 			msg = append(msg, "Kubernetes namespace must not be informed when local File configuration is used.")
 		}
 
+		if s.BrokerConfig != "" || s.ObservabilityConfig != "" {
+			msg = append(msg, "Inline config cannot be used along with local file configuration.")
+		}
+
 	default:
 		msg = append(msg, "Either Kubernetes Secret or local file configuration must be informed.")
 	}
 
 	if len(msg) != 0 {
+		s.ConfigMethod = ConfigMethodUnknown
 		return fmt.Errorf(strings.Join(msg, " "))
 	}
 
@@ -150,6 +179,21 @@ func (s *Globals) Initialize() error {
 		// Read before starting the watcher to use it with the
 		// start routines.
 		cfg, err = observability.ReadFromFile(s.ObservabilityConfigPath)
+		if err != nil || cfg.LoggerCfg == nil {
+			log.Printf("Could not appliying provided config: %v", err)
+			defaultConfigApplied = true
+		}
+
+	case s.ObservabilityConfig != "":
+		data := map[string]string{}
+		err = json.Unmarshal([]byte(s.ObservabilityConfig), &data)
+		if err != nil {
+			log.Printf("Could not appliying provided config: %v", err)
+			defaultConfigApplied = true
+			break
+		}
+
+		cfg, err = observability.ParseFromMap(data)
 		if err != nil || cfg.LoggerCfg == nil {
 			log.Printf("Could not appliying provided config: %v", err)
 			defaultConfigApplied = true

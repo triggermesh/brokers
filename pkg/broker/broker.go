@@ -18,6 +18,7 @@ import (
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	"github.com/triggermesh/brokers/pkg/common/kubernetes/controller"
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 	cfgbpoller "github.com/triggermesh/brokers/pkg/config/broker/poller"
 	cfgbwatcher "github.com/triggermesh/brokers/pkg/config/broker/watcher"
 	cfgopoller "github.com/triggermesh/brokers/pkg/config/observability/poller"
@@ -45,6 +46,7 @@ type Instance struct {
 	bcp          *cfgbpoller.Poller
 	ocp          *cfgopoller.Poller
 	km           *controller.Manager
+	staticConfig *cfgbroker.Config
 	status       Status
 
 	logger *zap.SugaredLogger
@@ -80,7 +82,9 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		logger: globals.Logger.Named("broker"),
 	}
 
-	if globals.ConfigMethod == cmd.ConfigMethodFileWatcher {
+	switch globals.ConfigMethod {
+
+	case cmd.ConfigMethodFileWatcher:
 		// The ConfigWatcher will read the configfile and call registered
 		// callbacks upon start and everytime the configuration file
 		// is updated.
@@ -121,9 +125,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 				broker.ocw = ocfgw
 			}
 		}
-	}
 
-	if globals.ConfigMethod == cmd.ConfigMethodKubernetesSecretMapWatcher {
+	case cmd.ConfigMethodKubernetesSecretMapWatcher:
 		km, err := controller.NewManager(globals.KubernetesNamespace, globals.Logger.Named("controller"))
 		if err != nil {
 			return nil, fmt.Errorf("error creating kubernetes controller manager: %w", err)
@@ -147,9 +150,8 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		}
 
 		broker.km = km
-	}
 
-	if globals.ConfigMethod == cmd.ConfigMethodFilePoller {
+	case cmd.ConfigMethodFilePoller:
 		p, err := fs.NewPoller(globals.ConfigPollingPeriod, globals.Logger.Named("poller"))
 		if err != nil {
 			return nil, fmt.Errorf("error creating file poller: %w", err)
@@ -185,6 +187,16 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 
 			broker.ocp = ocfgp
 		}
+
+	case cmd.ConfigMethodInline:
+		// Observability options were already set at globals initialize. We
+		// only need to set ingest and subscription config here.
+
+		cfg, err := cfgbroker.Parse(globals.BrokerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing inline broker configuration: %w", err)
+		}
+		broker.staticConfig = cfg
 	}
 
 	return broker, nil
@@ -276,12 +288,18 @@ func (i *Instance) Start(inctx context.Context) error {
 		}
 	}
 
-	// Start controller only if kubernetes informers are configured
+	// Start controller only if kubernetes informers are configured.
 	if i.km != nil {
 		grp.Go(func() error {
 			err := i.km.Start(ctx)
 			return err
 		})
+	}
+
+	// Static config is configured once when starting.
+	if i.staticConfig != nil {
+		i.ingest.UpdateFromConfig(i.staticConfig)
+		i.subscription.UpdateFromConfig(i.staticConfig)
 	}
 
 	// Register producer function for received events at ingest.
