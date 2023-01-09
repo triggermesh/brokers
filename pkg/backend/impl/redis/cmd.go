@@ -3,7 +3,13 @@
 
 package redis
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/rickb777/date/period"
+)
 
 type RedisArgs struct {
 	Address       string `help:"Redis address." env:"ADDRESS" default:"0.0.0.0:6379"`
@@ -18,6 +24,27 @@ type RedisArgs struct {
 	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 
-	StreamMaxLen      int           `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
-	ProcessingTimeout time.Duration `help:"Time after which an event that did not complete processing will be re-delivered by Redis." env:"PROCESSING_TIMEOUT" default:"3m"`
+	StreamMaxLen      int    `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
+	ProcessingTimeout string `help:"Time after which an event that did not complete processing will be re-delivered by Redis." env:"PROCESSING_TIMEOUT" default:"PT3M"`
+
+	ProcessingTimeoutDuration time.Duration `kong:"-"`
+}
+
+func (ra *RedisArgs) Validate() error {
+	msg := []string{}
+
+	if ra.ProcessingTimeout != "" {
+		p, err := period.Parse(ra.ProcessingTimeout)
+		if err != nil {
+			msg = append(msg, fmt.Sprintf("Processing timeout is not an ISO8601 duration: %v", err))
+		} else {
+			ra.ProcessingTimeoutDuration = p.DurationApprox()
+		}
+	}
+
+	if len(msg) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(msg, " "))
 }

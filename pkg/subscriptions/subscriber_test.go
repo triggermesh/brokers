@@ -159,7 +159,7 @@ func TestSubscriberFilter(t *testing.T) {
 		t.Run(n, func(t *testing.T) {
 			b := memory.New(&memory.MemoryArgs{
 				BufferSize:     1000,
-				ProduceTimeout: 10 * time.Second,
+				ProduceTimeout: "PT10S",
 			}, logger)
 
 			client, rcv := cetest.NewMockRequesterClient(t, len(tc.events), testReceiver)

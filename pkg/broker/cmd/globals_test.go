@@ -89,7 +89,7 @@ func TestGlobalsValidation(t *testing.T) {
 	}
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
-			err := tc.globals.validate()
+			err := tc.globals.Validate()
 
 			if err != nil || tc.expectedErr != "" {
 				require.ErrorContains(t, err, tc.expectedErr)

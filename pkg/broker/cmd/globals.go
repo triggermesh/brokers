@@ -70,7 +70,7 @@ type Globals struct {
 	ConfigMethod  ConfigMethod       `kong:"-"`
 }
 
-func (s *Globals) validate() error {
+func (s *Globals) Validate() error {
 	msg := []string{}
 
 	// We need to sort out if ConfigPollingPeriod is not 0 before
@@ -165,14 +165,10 @@ func (s *Globals) validate() error {
 }
 
 func (s *Globals) Initialize() error {
-	err := s.validate()
-	if err != nil {
-		return err
-	}
-
 	var cfg *observability.Config
 	var l *zap.Logger
 	defaultConfigApplied := false
+	var err error
 
 	switch {
 	case s.ObservabilityConfigPath != "":

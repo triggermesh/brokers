@@ -13,6 +13,10 @@ type StartCmd struct {
 	Redis redis.RedisArgs `embed:"" prefix:"redis." envprefix:"REDIS_"`
 }
 
+func (s *StartCmd) Validate() error {
+	return s.Redis.Validate()
+}
+
 func (c *StartCmd) Run(globals *pkgcmd.Globals) error {
 	globals.Logger.Debug("Creating Redis backend client")
 
