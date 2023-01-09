@@ -3,7 +3,10 @@
 
 package redis
 
-import "time"
+import (
+	"fmt"
+	"strings"
+)
 
 type RedisArgs struct {
 	Address       string `help:"Redis address." env:"ADDRESS" default:"0.0.0.0:6379"`
@@ -18,6 +21,17 @@ type RedisArgs struct {
 	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 
-	StreamMaxLen      int           `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
-	ProcessingTimeout time.Duration `help:"Time after which an event that did not complete processing will be re-delivered by Redis." env:"PROCESSING_TIMEOUT" default:"3m"`
+	StreamMaxLen int `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
+}
+
+func (ra *RedisArgs) Validate() error {
+	msg := []string{}
+
+	// TODO add validations
+
+	if len(msg) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(msg, " "))
 }

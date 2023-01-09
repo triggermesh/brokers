@@ -52,8 +52,8 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	}
 
 	select {
-	case <-time.After(s.args.ProduceTimeout):
-		return fmt.Errorf("failed to add the event to the buffer after %d", s.args.ProduceTimeout)
+	case <-time.After(s.args.ProduceTimeoutDuration):
+		return fmt.Errorf("failed to add the event to the buffer after %s", s.args.ProduceTimeout)
 	case s.buffer <- event:
 	}
 	return nil
