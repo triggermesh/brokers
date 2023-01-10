@@ -24,7 +24,17 @@ func (ma *MemoryArgs) Validate() error {
 	if ma.ProduceTimeout != "" {
 		p, err := period.Parse(ma.ProduceTimeout)
 		if err != nil {
-			msg = append(msg, fmt.Sprintf("Produce timeout is not an ISO8601 duration: %v", err))
+			// try to parse go duration for backwards compatibility.
+			gd, gderr := time.ParseDuration(ma.ProduceTimeout)
+			if gderr != nil {
+				// go time parsing failed, we assume that the incoming parameter was ISO8601
+				// for the error message.
+				msg = append(msg, fmt.Sprintf("Produce timeout is not an ISO8601 duration: %v", err))
+			} else {
+				// configure using go time
+				// TODO cast a warning.
+				ma.ProduceTimeoutDuration = gd
+			}
 		} else {
 			ma.ProduceTimeoutDuration = p.DurationApprox()
 		}

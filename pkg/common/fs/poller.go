@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	dateperiod "github.com/rickb777/date/period"
 	"go.uber.org/zap"
 )
 
@@ -29,19 +28,15 @@ type pollFile struct {
 type poller struct {
 	polledFiles map[string]*pollFile
 
-	period dateperiod.Period
+	period time.Duration
 	m      sync.RWMutex
 	start  sync.Once
 	logger *zap.SugaredLogger
 }
 
-func NewPoller(period string, logger *zap.SugaredLogger) (Poller, error) {
-	p, err := dateperiod.Parse(period)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse %q as polling period: %w", period, err)
-	}
+func NewPoller(period time.Duration, logger *zap.SugaredLogger) (Poller, error) {
 	return &poller{
-		period:      p,
+		period:      period,
 		logger:      logger,
 		polledFiles: map[string]*pollFile{},
 	}, nil
@@ -92,7 +87,7 @@ func (p *poller) Add(path string, cb PollerCallback) error {
 func (p *poller) Start(ctx context.Context) {
 	p.start.Do(func() {
 
-		ticker := time.NewTicker(p.period.DurationApprox())
+		ticker := time.NewTicker(p.period)
 		// Do not block, exit on context done.
 		go func() {
 			for {

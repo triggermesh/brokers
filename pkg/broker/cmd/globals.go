@@ -78,7 +78,17 @@ func (s *Globals) Validate() error {
 	if s.ConfigPollingPeriod != "" {
 		p, err := period.Parse(s.ConfigPollingPeriod)
 		if err != nil {
-			msg = append(msg, fmt.Sprintf("Polling frequency is not an ISO8601 duration: %v", err))
+			// try to parse go duration for backwards compatibility.
+			gd, gderr := time.ParseDuration(s.ConfigPollingPeriod)
+			if gderr != nil {
+				// go time parsing failed, we assume that the incoming parameter was ISO8601
+				// for the error message.
+				msg = append(msg, fmt.Sprintf("Config polling period is not an ISO8601 duration: %v", err))
+			} else {
+				// configure using go time
+				// TODO cast a warning.
+				s.PollingPeriod = gd
+			}
 		} else {
 			s.PollingPeriod = p.DurationApprox()
 		}
