@@ -208,7 +208,7 @@ redis.tls-enabled         | REDIS_TLS_ENABLED               | false | TLS enable
 redis.tls-skip-verify     | REDIS_TLS_SKIP_VERIFY           | false | TLS skipping certificate verification.
 redis.stream              | REDIS_STREAM                    | triggermesh | Stream name that stores the broker's CloudEvents.
 redis.group               | REDIS_GROUP                     | default | Redis stream consumer group name.
-redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 0 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
+redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 1000 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
 memory.buffer-size        | MEMORY_BUFFER_SIZE              | 10000 | Number of events that can be hosted in the backend.
 memory.produce-timeout    | MEMORY_PRODUCE_TIMEOUT          | PT5S | Maximum wait time for producing an event to the backend. Formatted as ISO8601 duration.
 
