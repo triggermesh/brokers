@@ -21,7 +21,7 @@ type RedisArgs struct {
 	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 
-	StreamMaxLen int `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAXLEN" default:"0"`
+	StreamMaxLen int `help:"Limit the number of items in a stream by trimming it. Set to 0 for unlimited." env:"STREAM_MAX_LEN" default:"1000"`
 }
 
 func (ra *RedisArgs) Validate() error {
