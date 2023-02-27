@@ -46,7 +46,10 @@ func New(args *RedisArgs, logger *zap.SugaredLogger) backend.Interface {
 type redis struct {
 	args *RedisArgs
 
-	client *goredis.Client
+	client goredis.Cmdable
+	// Redis' Cmdable does not include the conneciton operation
+	// functions, we keep track of closing via this field.
+	clientClose func() error
 
 	// subscription list indexed by the name.
 	subs map[string]subscription
@@ -78,13 +81,38 @@ func (s *redis) Init(ctx context.Context) error {
 		}
 	}
 
-	s.client = goredis.NewClient(&goredis.Options{
-		Addr:      s.args.Address,
-		Username:  s.args.Username,
-		Password:  s.args.Password,
-		DB:        s.args.Database,
-		TLSConfig: tlscfg,
-	})
+	if len(s.args.ClusterAddresses) != 0 {
+		s.logger.Info("Cluster client")
+		clusterclient := goredis.NewClusterClient(&goredis.ClusterOptions{
+			Addrs:     s.args.ClusterAddresses,
+			Username:  s.args.Username,
+			Password:  s.args.Password,
+			TLSConfig: tlscfg,
+		})
+
+		s.clientClose = clusterclient.Close
+		s.client = clusterclient
+	} else {
+		client := goredis.NewClient(&goredis.Options{
+			Addr:      s.args.Address,
+			Username:  s.args.Username,
+			Password:  s.args.Password,
+			DB:        s.args.Database,
+			TLSConfig: tlscfg,
+		})
+
+		s.clientClose = client.Close
+		s.client = client
+	}
+
+	// clusterclient := goredis.NewClusterClient(&goredis.ClusterOptions{
+	// 	Addrs:     []string{s.args.Address},
+	// 	Username:  s.args.Username,
+	// 	Password:  s.args.Password,
+	// 	TLSConfig: tlscfg,
+	// })
+
+	// s.clientX = s.client
 
 	return s.Probe(ctx)
 }
@@ -119,7 +147,7 @@ func (s *redis) Start(ctx context.Context) error {
 		s.logger.Error(fmt.Sprintf("Disconnection from Redis timed out after %d", disconnectTimeout))
 	}
 
-	return s.client.Close()
+	return s.clientClose()
 }
 
 func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {

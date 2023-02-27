@@ -124,6 +124,8 @@ REDIS_TLS_SKIP_VERIFY=true \
 go run ./cmd/redis-broker start
 ```
 
+Note: when using a Redis cluster provide a comma separated list of nodes at `REDIS_CLUSTER_ADDRESSES` instead of the `REDIS_ADDRESS` parameter.
+
 ## Memory
 
 ```console
@@ -200,7 +202,8 @@ config-polling-period                 | CONFIG_POLLING_PERIOD    | PT0S | ISO860
 broker-config                 | BROKER_CONFIG    | | JSON representation of broker configuration. Enabling it will disable other configuration methods.
 observability-config                 | BROKER_CONFIG    |  | JSON representation of observability configuration. Enabling it will disable other configuration methods.
 observability-metrics-domain          | OBSERVABILITY_CONFIG  | triggermesh.io/eventing | Domain to be used for some metrics reporters.
-redis.address             | REDIS_ADDRESS                   | 0.0.0.0:6379 | Redis address.
+redis.address             | REDIS_ADDRESS                   | 0.0.0.0:6379 | Redis address for standalone instances.
+redis.cluster-addresses   | REDIS_CLUSTER_ADDRESSES         | | Comma separated list of redis addresses for clustered instances.
 redis.username            | REDIS_USERNAME                  | | Redis username.
 redis.password            | REDIS_PASSWORD                  | | Redis password.
 redis.database            | REDIS_DATABASE                  | 0 | Database ordinal at Redis.
