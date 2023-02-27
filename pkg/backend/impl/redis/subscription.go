@@ -36,7 +36,7 @@ type subscription struct {
 	// stoppedCh signals when a subscription has completely finished.
 	stoppedCh chan struct{}
 
-	client *goredis.Client
+	client goredis.Cmdable
 	logger *zap.SugaredLogger
 }
 

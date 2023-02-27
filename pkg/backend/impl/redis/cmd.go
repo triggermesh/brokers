@@ -9,7 +9,9 @@ import (
 )
 
 type RedisArgs struct {
-	Address       string `help:"Redis address." env:"ADDRESS" default:"0.0.0.0:6379"`
+	Address          string   `help:"Redis address." env:"ADDRESS" default:"0.0.0.0:6379"`
+	ClusterAddresses []string `help:"Redis address." env:"CLUSTER_ADDRESSES"`
+
 	Username      string `help:"Redis username." env:"USERNAME"`
 	Password      string `help:"Redis password." env:"PASSWORD"`
 	Database      int    `help:"Database ordinal at Redis." env:"DATABASE" default:"0"`
@@ -27,7 +29,10 @@ type RedisArgs struct {
 func (ra *RedisArgs) Validate() error {
 	msg := []string{}
 
-	// TODO add validations
+	if len(ra.ClusterAddresses) != 0 &&
+		ra.Address != "" {
+		msg = append(msg, "Only one of address (standalone) or cluster addresses (cluster) arguments must be provided.")
+	}
 
 	if len(msg) == 0 {
 		return nil
