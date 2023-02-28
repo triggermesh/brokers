@@ -29,8 +29,10 @@ type RedisArgs struct {
 func (ra *RedisArgs) Validate() error {
 	msg := []string{}
 
+	// Since there is a default value at addresses, we only check that cluster addresses and a value for
+	// and standalone instance that is different to the default must not be provided.
 	if len(ra.ClusterAddresses) != 0 &&
-		ra.Address != "" {
+		ra.Address != "0.0.0.0:6379" && ra.Address != "" {
 		msg = append(msg, "Only one of address (standalone) or cluster addresses (cluster) arguments must be provided.")
 	}
 
