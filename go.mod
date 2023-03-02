@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/alecthomas/kong v0.7.1
-	github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a // indirect
+	github.com/cloudevents/sdk-go/sql/v2 v2.13.0 // indirect
 	github.com/cloudevents/sdk-go/v2 v2.13.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-redis/redis/v9 v9.0.0-rc.2
@@ -14,9 +14,9 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.1.0
-	knative.dev/eventing v0.35.0
-	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
-	sigs.k8s.io/controller-runtime v0.14.4
+	knative.dev/eventing v0.36.6
+	knative.dev/pkg v0.0.0-20230224205330-75da922ef055
+	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -46,7 +46,7 @@ require (
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.1
-	k8s.io/klog/v2 v2.80.1 // indirect
+	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54 // indirect
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
@@ -58,6 +58,7 @@ require (
 )
 
 require (
+	cloud.google.com/go v0.98.0 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
@@ -98,4 +99,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.26.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
+)
+
+replace (
+	k8s.io/api => k8s.io/api v0.25.4
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
+	k8s.io/client-go => k8s.io/client-go v0.25.4
+
 )
