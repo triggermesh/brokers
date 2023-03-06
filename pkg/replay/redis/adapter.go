@@ -92,7 +92,7 @@ func (a *replayadapter) replayEvents(context.Context) error {
 	for _, event := range events {
 		a.logger.Debugf("sending event #%s: %v", eventCounter, event)
 		eventCounter++
-		if result := a.ceClient.Send(context.Background(), event); result.Error != nil {
+		if result := a.ceClient.Send(context.Background(), event); !cloudevents.IsACK(result) {
 			a.logger.Errorf("Error sending event: %v", result.Error)
 			return result
 		}
