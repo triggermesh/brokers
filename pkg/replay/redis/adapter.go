@@ -1,18 +1,5 @@
-/*
-Copyright 2023 TriggerMesh Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2022 TriggerMesh Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 package replay
 
@@ -71,10 +58,7 @@ func NewAdapter(ctx context.Context, envAcc pkgadapter.EnvConfigAccessor, ceClie
 
 var _ pkgadapter.Adapter = (*replayadapter)(nil)
 
-// Start is a blocking function and will return if an error occurs
-// or the context is cancelled.
 func (a *replayadapter) Start(ctx context.Context) error {
-	// Open a connection to the Redis database
 	a.logger.Info("connecting to Redis")
 	_, err := a.client.Ping(ctx).Result()
 	if err != nil {
@@ -105,6 +89,7 @@ func (a *replayadapter) replayEvents(context.Context) error {
 	// Send the events to the sink
 	var eventCounter int
 	startTime := time.Now()
+	a.logger.Infof("sending %d events", len(events))
 	for _, event := range events {
 		a.logger.Debugf("sending event #%s: %v", eventCounter, event)
 		eventCounter++
