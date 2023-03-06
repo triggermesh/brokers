@@ -52,7 +52,6 @@ func NewAdapter(ctx context.Context, envAcc pkgadapter.EnvConfigAccessor, ceClie
 		endTime:    env.EndTime,
 		filter:     env.Filter,
 		filterKind: env.FilterKind,
-		// key:      env.RedisKey,
 	}
 }
 
@@ -93,7 +92,11 @@ func (a *replayadapter) replayEvents(context.Context) error {
 	for _, event := range events {
 		a.logger.Debugf("sending event #%s: %v", eventCounter, event)
 		eventCounter++
-		a.ceClient.Send(context.Background(), event)
+		if result := a.ceClient.Send(context.Background(), event); result.Error != nil {
+			a.logger.Errorf("Error sending event: %v", result.Error)
+			return result
+		}
+
 	}
 	endTime := time.Now()
 	// Calculate the time it took to send the events.

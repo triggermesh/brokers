@@ -42,7 +42,6 @@ type replayadapter struct {
 	ceClient   cloudevents.Client
 	logger     *zap.SugaredLogger
 	client     *redis.Client
-	key        string
 	startTime  string
 	endTime    string
 	filter     string
