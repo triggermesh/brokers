@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -36,27 +35,13 @@ func main() {
 	filter := os.Getenv("FILTER")
 	filterKind := os.Getenv("FILTER_KIND")
 	startTime := os.Getenv("START_TIME")
-	// if a start time is provided, verify that it contains a valid timestamp
-	if startTime != "" {
-		_, err := strconv.ParseInt(startTime, 10, 64)
-		if err != nil {
-			log.Panicf("START_TIME environment variable is not a valid timestamp: %v", err)
-		}
-	}
 	endTime := os.Getenv("END_TIME")
-	// if an end time is provided, verify that it contains a valid timestamp
-	if endTime != "" {
-		_, err := strconv.ParseInt(endTime, 10, 64)
-		if err != nil {
-			log.Panicf("END_TIME environment variable is not a valid timestamp: %v", err)
-		}
-	}
 	// Create a new Redis client
 	client := redis.NewClient(&redis.Options{
 		Addr: redisAddress,
 		DB:   0,
 	})
-	// vierify that we can connect to the redis server
+	// verify that we can connect to the redis server
 	_, err := client.Ping(context.Background()).Result()
 	if err != nil {
 		log.Panicf("Error connecting to Redis server: %v", err)

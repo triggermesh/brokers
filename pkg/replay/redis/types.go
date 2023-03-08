@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// ReplayAdapter is the main struct for the replay adapter.
+// it conains all the necessary information needed to replay events.
 type ReplayAdapter struct {
 	Sink       string
 	CeClient   cloudevents.Client
