@@ -1,4 +1,4 @@
-// Copyright 2022 TriggerMesh Inc.
+// Copyright 2023 TriggerMesh Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package replay
@@ -24,7 +24,7 @@ type ReplayAdapter struct {
 }
 
 // REvent represents the structure of an expected Cloudevent stored
-// in Reddis via the XMessage interface.
+// in Redis via the XMessage interface.
 type REvent struct {
 	ID string `json:"ID"`
 	Ce []struct {

@@ -62,6 +62,45 @@ When using a single Redis backend, it is important to use a unique stream per br
 ACL SETUSER triggermesh1 on >7r!663R +@stream +client|id ~triggermeshstream
 ```
 
+### Redis Replay
+
+Redis Broker comes with an additional tool `redis-replay.` This tool allows users to replay/re-inject historical events. 
+
+The `redis-replay` can be invoked locally via exporting the required variables into your enviroment and then then runing it from the `cmd/redis-broker` folder. 
+
+The required enviorment variables are:
+
+* REDIS_ADDRESS - The location of the Redis backend (It should be shared with the Broker.) 
+* REDIS_PASSWORD - (If configured) The Redis Password
+* REDIS_USER - (If configured) The Redis User
+* REDIS_DATABASE - The Redis Database
+* K_SINK - Where Events should be replayed to.
+* START_TIME - (Optional) The time to begin replaying events from (ex. "2023-02-13T16:01:12Z")
+* END_TIME - (Optional) The time that events should be replayed up-untill (ex "2023-05-13T16:01:12Z")
+* FILTER_KIND - (Optional) The kind of event filtering to perform. Can be one of: 
+    * type 
+    * source
+    * subject
+    * datacontenttype
+    * id
+* FILTER - (Optional) The value to check against after selecting the FILTER_KIND. (I.E. If one selected `type` for the FILTER_KIND `io.example.message` might be used for FILTER)
+
+
+Once Redis Broker is running, and has some events. You can now run the redis-replay locally:
+```
+export REDIS_ADDRESS=localhost:6666
+export REDIS_PASSWORD=""
+export REDIS_DATABASE="0"
+export K_SINK=http://localhost:8082
+export START_TIME="2023-02-13T16:01:12Z"
+export END_TIME="2023-05-13T16:01:12Z"
+export FILTER=id
+export FILTER_KIND=1234-abcd-x
+export REDIS_PASSWORD=test
+export REDIS_USER=default
+go run cmd/replay/redis/main.go 
+```
+
 ### Non Authenticated Redis
 
 ```console
