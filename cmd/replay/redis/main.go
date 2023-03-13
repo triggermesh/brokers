@@ -31,15 +31,18 @@ func main() {
 		log.Panic("K_SINK environment variable is not set")
 	}
 	// optional environment variables
-	// redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisUser := os.Getenv("REDIS_USER")
 	filter := os.Getenv("FILTER")
 	filterKind := os.Getenv("FILTER_KIND")
 	startTime := os.Getenv("START_TIME")
 	endTime := os.Getenv("END_TIME")
 	// Create a new Redis client
 	client := redis.NewClient(&redis.Options{
-		Addr: redisAddress,
-		DB:   0,
+		Addr:     redisAddress,
+		Password: redisPassword,
+		Username: redisUser,
+		DB:       0,
 	})
 	// verify that we can connect to the redis server
 	_, err := client.Ping(context.Background()).Result()
