@@ -43,7 +43,6 @@ func (a *ReplayAdapter) ReplayEvents() error {
 
 			if result := a.CeClient.Send(ctx, event); !cloudevents.IsACK(result) {
 				a.Logger.Errorf("Error sending event: %v", result.Error)
-				return result
 			}
 		}
 		endTime := time.Now()
