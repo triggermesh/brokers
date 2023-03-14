@@ -16,6 +16,7 @@ import (
 )
 
 func (a *ReplayAdapter) ReplayEvents() error {
+	ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
 	// Query the Redis database for everything in the "triggermesh" key
 	val, err := a.Client.XRange(context.Background(), "triggermesh", "-", "+").Result()
 	if err != nil {
@@ -39,7 +40,7 @@ func (a *ReplayAdapter) ReplayEvents() error {
 			a.Logger.Debugf("sending event #%s: %v", eventCounter, event)
 			eventCounter++
 			// create a new context with target set to the sink
-			ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
+
 			if result := a.CeClient.Send(ctx, event); !cloudevents.IsACK(result) {
 				a.Logger.Errorf("Error sending event: %v", result.Error)
 				return result
