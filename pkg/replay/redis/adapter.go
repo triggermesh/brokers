@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func (a *ReplayAdapter) ReplayEvents() error {
+func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 	ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
 	// Query the Redis database for everything in the "triggermesh" key
 	val, err := a.Client.XRange(context.Background(), "triggermesh", "-", "+").Result()
@@ -25,7 +25,7 @@ func (a *ReplayAdapter) ReplayEvents() error {
 	// Get the events within the timestamps.
 	events := a.getEventsWithinTimestamps(val, a.StartTime, a.EndTime)
 	if err != nil {
-		return fmt.Errorf("getting events within timestamps: %v", err)
+		return fmt.Errorf("getting events within timestamps: %w", err)
 	}
 	// Filter the events if a filter is provided.
 	a.Logger.Infof("filtering events with %s", a.Filter)
@@ -35,15 +35,15 @@ func (a *ReplayAdapter) ReplayEvents() error {
 	startTime := time.Now()
 	// if there are events to send, and a sink is provided, send the events.
 	// otherwise,
-	if len(events) != 0 && a.Sink != "" {
+	if len(events) != 0 {
 		for _, event := range events {
 			a.Logger.Debugf("sending event #%s: %v", eventCounter, event)
-			eventCounter++
 			// create a new context with target set to the sink
 
 			if result := a.CeClient.Send(ctx, event); !cloudevents.IsACK(result) {
 				a.Logger.Errorf("Error sending event: %v", result.Error)
 			}
+			eventCounter++
 		}
 		endTime := time.Now()
 		// Calculate the time it took to send the events.
@@ -97,7 +97,7 @@ func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, e
 
 	// if the start timestamp is empty set it to the start a long time ago
 	if start == "" || start == "0" {
-		start = "2020-02-13T16:01:12Z"
+		start = "-"
 	}
 	// if the end timestamp is empty or 0, set it to the current time
 	if end == "" || end == "0" {

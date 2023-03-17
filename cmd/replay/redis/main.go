@@ -21,7 +21,6 @@ func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 	st := time.Now()
 	logger.Info("Starting replay adapter at", zap.Time("start_time", st))
@@ -53,7 +52,7 @@ func main() {
 	if err != nil {
 		logger.Panic("failed to connect to redis server", zap.Error(err))
 	}
-	// create a new cloudevent client
+	ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
 	c, err := cloudevents.NewClientHTTP()
 	if err != nil {
 		logger.Panic("failed to create cloudevent client", zap.Error(err))
@@ -71,7 +70,7 @@ func main() {
 		Logger:     logger.Sugar(),
 	}
 	// start the replayAdapter
-	if err := replayAdapter.ReplayEvents(); err != nil {
+	if err := replayAdapter.ReplayEvents(ctx); err != nil {
 		logger.Panic("failed to replay events", zap.Error(err))
 	}
 }
