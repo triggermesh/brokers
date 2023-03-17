@@ -16,7 +16,6 @@ import (
 )
 
 func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
-	ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
 	// Query the Redis database for everything in the "triggermesh" key
 	val, err := a.Client.XRange(context.Background(), "triggermesh", "-", "+").Result()
 	if err != nil {
@@ -27,9 +26,11 @@ func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("getting events within timestamps: %w", err)
 	}
-	// Filter the events if a filter is provided.
-	a.Logger.Infof("filtering events with %s", a.Filter)
-	events = a.filterEvents(events)
+	if a.Filter != "" {
+		// Filter the events if a filter is provided.
+		a.Logger.Infof("filtering events with %s", a.Filter)
+		events = a.filterEvents(events)
+	}
 	// Send the events to the sink
 	var eventCounter int
 	startTime := time.Now()
@@ -78,43 +79,16 @@ func (a *ReplayAdapter) filterEvents(events []cloudevents.Event) []cloudevents.E
 			if event.DataContentType() == filter {
 				filteredEvents = append(filteredEvents, event)
 			}
-		// case "extension":
-		// 	if event.Extensions() == filter {
-		// 		filteredEvents = append(filteredEvents, event)
-		// 	}
 		case "id":
 			if event.ID() == filter {
 				filteredEvents = append(filteredEvents, event)
 			}
-		case "schemaurl":
-			// TODO: Fetch the provided schema URL and compare the data to the schema.
 		}
 	}
 	return filteredEvents
 }
 
-func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, end string) []cloudevents.Event {
-
-	// if the start timestamp is empty set it to the start a long time ago
-	if start == "" || start == "0" {
-		start = "-"
-	}
-	// if the end timestamp is empty or 0, set it to the current time
-	if end == "" || end == "0" {
-		// create a string of the current time in RFC3339 format
-		end = fmt.Sprint(time.Now().Format(time.RFC3339))
-	}
-	// parse the start and end timestamps
-	startTimestamp, err := time.Parse(time.RFC3339, start)
-	if err != nil {
-		a.Logger.Errorf("Error parsing start timestamp: %v", err)
-		return nil
-	}
-	endTimestamp, err := time.Parse(time.RFC3339, end)
-	if err != nil {
-		a.Logger.Errorf("Error parsing start timestamp: %v", err)
-		return nil
-	}
+func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, end time.Time) []cloudevents.Event {
 	// create an array of events to return, if any are found.
 	var events []cloudevents.Event
 	// iterate through the messages received from the Redis stream.
@@ -131,7 +105,7 @@ func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, e
 			a.Logger.Errorf("Error unmarshalling message: %v", err)
 			continue
 		}
-		// extract the '-0' from the event timestamp
+		// extract everything after '-' from the event timestamp
 		// and parse it to RFC3339
 		parts := strings.Split(msg.ID, "-")
 		unixTimestamp := parts[0]
@@ -148,7 +122,7 @@ func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, e
 		}
 		// if the event timestamp is between the start and end timestamps
 		// then unmarshal it and add it to the events array.
-		if eventTimestamp.After(startTimestamp) && eventTimestamp.Before(endTimestamp) {
+		if eventTimestamp.After(start) && eventTimestamp.Before(end) {
 			re := cloudevents.NewEvent()
 			jsonStr := []byte(msg.Values["ce"].(string))
 			err = json.Unmarshal(jsonStr, &re)

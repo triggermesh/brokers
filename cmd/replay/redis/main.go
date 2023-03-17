@@ -40,6 +40,30 @@ func main() {
 	filterKind := os.Getenv("FILTER_KIND")
 	startTime := os.Getenv("START_TIME")
 	endTime := os.Getenv("END_TIME")
+
+	var startTimeStamp time.Time
+	var endTimeStamp time.Time
+	if startTime == "" {
+		startTimeStamp = time.Unix(0, 0)
+	} else {
+		// parse the start and end timestamps
+		startTimeStamp, err = time.Parse(time.RFC3339, startTime)
+		if err != nil {
+			logger.Panic("Error parsing start timestamp", zap.Error(err))
+		}
+	}
+	if endTime == "" {
+		endTimeStamp = time.Now()
+	} else {
+		// parse the start and end timestamps
+		endTimeStamp, err = time.Parse(time.RFC3339, endTime)
+		if err != nil {
+			logger.Panic("Error parsing start timestamp", zap.Error(err))
+		}
+	}
+
+	// convert the timestamps to
+
 	// Create a new Redis client
 	client := redis.NewClient(&redis.Options{
 		Addr:     redisAddress,
@@ -52,7 +76,7 @@ func main() {
 	if err != nil {
 		logger.Panic("failed to connect to redis server", zap.Error(err))
 	}
-	ctx := cloudevents.ContextWithTarget(context.Background(), a.Sink)
+	ctx := cloudevents.ContextWithTarget(context.Background(), sink)
 	c, err := cloudevents.NewClientHTTP()
 	if err != nil {
 		logger.Panic("failed to create cloudevent client", zap.Error(err))
@@ -63,8 +87,8 @@ func main() {
 		Sink:       sink,
 		CeClient:   c,
 		Client:     client,
-		StartTime:  startTime,
-		EndTime:    endTime,
+		StartTime:  startTimeStamp,
+		EndTime:    endTimeStamp,
 		Filter:     filter,
 		FilterKind: filterKind,
 		Logger:     logger.Sugar(),

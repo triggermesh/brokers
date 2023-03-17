@@ -4,6 +4,8 @@
 package replay
 
 import (
+	"time"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
 	"github.com/redis/go-redis/v9"
@@ -17,8 +19,8 @@ type ReplayAdapter struct {
 	CeClient   cloudevents.Client
 	Logger     *zap.SugaredLogger
 	Client     *redis.Client
-	StartTime  string
-	EndTime    string
+	StartTime  time.Time
+	EndTime    time.Time
 	Filter     string
 	FilterKind string
 }
