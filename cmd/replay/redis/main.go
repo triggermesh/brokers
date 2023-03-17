@@ -18,7 +18,6 @@ import (
 )
 
 func main() {
-	// create a new zap logger
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
