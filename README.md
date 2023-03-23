@@ -110,6 +110,9 @@ go run ./cmd/redis-broker start \
   --broker-config-path .local/broker-config.yaml
 ```
 
+### CA Certificate
+If the redis instance requires a CA Certificate the `REDIS_CA_CERTIFICATE` environment variable can be set to specify a CA certificate bundle.
+
 ### Using Environment Variables
 
 Parameters for the broker can be set as environment variables.
@@ -121,6 +124,7 @@ REDIS_USERNAME=triggermesh1 \
 REDIS_PASSWORD=7r\!663R \
 REDIS_TLS_ENABLED=true \
 REDIS_TLS_SKIP_VERIFY=true \
+REDIS_CA_CERTIFICATE="-----BEGIN CERTIFICATE-----abc123-----END CERTIFICATE-----"
 go run ./cmd/redis-broker start
 ```
 

@@ -6,6 +6,7 @@ package redis
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"strings"
@@ -78,6 +79,20 @@ func (s *redis) Init(ctx context.Context) error {
 		tlscfg = &tls.Config{
 			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: s.args.TLSSkipVerify,
+		}
+
+		if s.args.CACertificate != "" {
+			tlscfg.InsecureSkipVerify = false
+			s.logger.Info("Adding CA Cert to TLS Config")
+			roots := x509.NewCertPool()
+			var (
+				certPEM = []byte(s.args.CACertificate)
+			)
+			ok := roots.AppendCertsFromPEM(certPEM)
+			if !ok {
+				return fmt.Errorf("could not add CA Certificate: %w", errors.New("Invalid CA Cert format"))
+			}
+			tlscfg.RootCAs = roots
 		}
 	}
 
