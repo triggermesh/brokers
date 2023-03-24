@@ -81,17 +81,14 @@ func (s *redis) Init(ctx context.Context) error {
 			InsecureSkipVerify: s.args.TLSSkipVerify,
 		}
 
-		if s.args.CACertificate != "" {
-			tlscfg.InsecureSkipVerify = false
+		if s.args.TLSCACertificate != "" {
 			s.logger.Info("Adding CA Cert to TLS Config")
+
 			roots := x509.NewCertPool()
-			var (
-				certPEM = []byte(s.args.CACertificate)
-			)
-			ok := roots.AppendCertsFromPEM(certPEM)
-			if !ok {
-				return fmt.Errorf("could not add CA Certificate: %w", errors.New("Invalid CA Cert format"))
+			if ok := roots.AppendCertsFromPEM([]byte(s.args.TLSCACertificate)); !ok {
+				return errors.New("not valid CA Cert format")
 			}
+
 			tlscfg.RootCAs = roots
 		}
 	}
