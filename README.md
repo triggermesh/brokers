@@ -105,7 +105,7 @@ go run ./cmd/redis-broker start \
   --redis.username triggermesh1 \
   --redis.password "7r\!663R" \
   --redis.tls-enabled  \
-  --redis.tls-skip-verify \
+  --reidis.tls-ca-certificate "-----BEGIN CERTIFICATE-----abc123-----END CERTIFICATE-----" \
   --redis.address "tls.self.signed.redis.server:25102" \
   --broker-config-path .local/broker-config.yaml
 ```
@@ -209,6 +209,7 @@ redis.password            | REDIS_PASSWORD                  | | Redis password.
 redis.database            | REDIS_DATABASE                  | 0 | Database ordinal at Redis.
 redis.tls-enabled         | REDIS_TLS_ENABLED               | false | TLS enablement for Redis connection.
 redis.tls-skip-verify     | REDIS_TLS_SKIP_VERIFY           | false | TLS skipping certificate verification.
+redis.tls-ca-certificate  | REDIS_TLS_CA_CERTIFICATE        | | TLS CA certificate used to connect to Redis.
 redis.stream              | REDIS_STREAM                    | triggermesh | Stream name that stores the broker's CloudEvents.
 redis.group               | REDIS_GROUP                     | default | Redis stream consumer group name.
 redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 1000 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
