@@ -22,11 +22,9 @@ BIN_OUTPUT_DIR    ?= $(OUTPUT_DIR)
 DIST_DIR          ?= $(OUTPUT_DIR)
 
 # Dynamically generate the list of commands based on the directory name cited in the cmd directory
-COMMANDS          := $(notdir $(wildcard cmd/*))
+BROKERS           := $(notdir $(wildcard cmd/*))
 
-# Rely on ko for building/publishing images and generating/deploying manifests
-KO                ?= ko
-KOFLAGS           ?=
+IMAGE_REPO        ?= gcr.io/triggermesh
 IMAGE_TAG         ?= $(shell git rev-parse HEAD)
 
 # Go build variables
@@ -47,9 +45,9 @@ all: build
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*?## "; printf "\n$(KREPO_DESC)\n\nUsage:\n  make \033[36m<cmd>\033[0m\n"} /^[a-zA-Z0-9._-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: $(COMMANDS)  ## Build all artifacts
+build: $(BROKERS)  ## Build all artifacts
 
-$(COMMANDS): ## Build artifact
+$(BROKERS): ## Build artifact
 	$(GO) build -ldflags "$(LDFLAGS_STATIC)" -o $(BIN_OUTPUT_DIR)/$@ ./cmd/$@
 
 release: ## Publish container images
@@ -64,13 +62,12 @@ fmt: ## Format source files
 fmt-test: ## Check source formatting
 	@test -z $(shell $(GOFMT) -l $(shell $(GO) list -f '{{$$d := .Dir}}{{range .GoFiles}}{{$$d}}/{{.}} {{end}} {{$$d := .Dir}}{{range .TestGoFiles}}{{$$d}}/{{.}} {{end}}' $(GOPKGS)))
 
-KO_IMAGES = $(foreach cmd,$(COMMANDS),$(cmd).image)
-
-images: $(KO_IMAGES) ## Build container images
-$(KO_IMAGES): %.image:
-	$(KO) publish --push=false -B --tag-only -t $(IMAGE_TAG) ./cmd/$*
+IMAGES = $(foreach runtime,$(BROKERS),$(runtime).image)
+images: $(IMAGES) ## Build container images
+$(IMAGES): %.image:
+	docker build -t $(IMAGE_REPO)/$*:${IMAGE_TAG} -f cmd/$*/Dockerfile .
 
 clean: ## Clean build artifacts
-	@for bin in $(COMMANDS) ; do \
+	@for bin in $(BROKERS) ; do \
 		$(RM) -v $(BIN_OUTPUT_DIR)/$$bin; \
 	done
