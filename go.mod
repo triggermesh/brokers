@@ -16,7 +16,7 @@ require (
 	golang.org/x/sync v0.1.0
 	knative.dev/eventing v0.36.7
 	knative.dev/pkg v0.0.0-20230320014357-4c84b1b51ee8
-	sigs.k8s.io/controller-runtime v0.13.1
+	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/yaml v1.3.0
 )
 
