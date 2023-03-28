@@ -16,7 +16,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
-	goredis "github.com/go-redis/redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/triggermesh/brokers/pkg/backend"
 )
