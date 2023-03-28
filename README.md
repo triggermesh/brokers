@@ -7,7 +7,7 @@ TriggerMesh supported brokers.
 
 ## Configuration
 
-Configuration (WIP) informs about the Triggers that send events to targets.
+Configuration informs about the Triggers that send events to targets.
 Durations follow [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format
 
 ```yaml
@@ -105,7 +105,7 @@ go run ./cmd/redis-broker start \
   --redis.username triggermesh1 \
   --redis.password "7r\!663R" \
   --redis.tls-enabled  \
-  --reidis.tls-ca-certificate "-----BEGIN CERTIFICATE-----abc123-----END CERTIFICATE-----" \
+  --redis.tls-ca-certificate="-----BEGIN CERTIFICATE-----abc123-----END CERTIFICATE-----" \
   --redis.address "tls.self.signed.redis.server:25102" \
   --broker-config-path .local/broker-config.yaml
 ```

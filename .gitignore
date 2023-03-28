@@ -1,4 +1,6 @@
 .local/
 
+.vscode/
+
 # Build artifacts
 /_output/
