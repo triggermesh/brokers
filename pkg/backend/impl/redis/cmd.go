@@ -17,6 +17,8 @@ type RedisArgs struct {
 	Database         int    `help:"Database ordinal at Redis." env:"DATABASE" default:"0"`
 	TLSEnabled       bool   `help:"TLS enablement for Redis connection." env:"TLS_ENABLED" default:"false"`
 	TLSSkipVerify    bool   `help:"TLS skipping certificate verification." env:"TLS_SKIP_VERIFY" default:"false"`
+	TLSCertificate   string `help:"TLS Certificate to connect to Redis." env:"TLS_CERTIFICATE"`
+	TLSKey           string `help:"TLS Certificate key to connect to Redis." env:"TLS_KEY"`
 	TLSCACertificate string `help:"CA Certificate to connect to Redis." name:"tls-ca-certificate" env:"TLS_CA_CERTIFICATE"`
 
 	Stream string `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
@@ -39,6 +41,11 @@ func (ra *RedisArgs) Validate() error {
 
 	if ra.TLSCACertificate != "" && ra.TLSSkipVerify {
 		msg = append(msg, "only one of skip verify or CA certificate can be informed")
+	}
+
+	if (ra.TLSCertificate != "" || ra.TLSKey != "") &&
+		(ra.TLSCertificate == "" || ra.TLSKey == "") {
+		msg = append(msg, "TLS authentication requires Certificate and Key to be informed")
 	}
 
 	if len(msg) == 0 {

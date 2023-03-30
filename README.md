@@ -98,7 +98,7 @@ go run ./cmd/redis-broker start \
 
 ### TLS Enabled Redis
 
-If the Redis instance is exposed using TLS, it must enabled at the broker config via `redis.tls-enabled` flag. When using self-signed certificates `redis.tls-skip-verify` must be used.
+If the Redis instance is exposed using TLS, it must enabled at the broker config via `redis.tls-enabled` flag. For self-signed certificates you can inform them with `redis.tls-ca-certificate` or skip verification (not recommended) with `redis.tls-skip-verify`.
 
 ```console
 go run ./cmd/redis-broker start \
@@ -107,6 +107,21 @@ go run ./cmd/redis-broker start \
   --redis.tls-enabled  \
   --redis.tls-ca-certificate="-----BEGIN CERTIFICATE-----abc123-----END CERTIFICATE-----" \
   --redis.address "tls.self.signed.redis.server:25102" \
+  --broker-config-path .local/broker-config.yaml
+```
+
+When configuring TLS certificates for Redis authentication, make use of `redis.tls-certificate` and `redis.tls-key`.
+
+```console
+go run ./cmd/redis-broker start \
+  --redis.tls-enabled  \
+  --redis.tls-certificate='-----BEGIN CERTIFICATE-----
+deadbeef..
+-----END CERTIFICATE-----' \
+  --redis.tls-key='-----BEGIN PRIVATE KEY-----
+c0ff33...
+-----END PRIVATE KEY-----' \
+  --redis.address "tls.redis.server:25102" \
   --broker-config-path .local/broker-config.yaml
 ```
 
@@ -210,6 +225,8 @@ redis.database            | REDIS_DATABASE                  | 0 | Database ordin
 redis.tls-enabled         | REDIS_TLS_ENABLED               | false | TLS enablement for Redis connection.
 redis.tls-skip-verify     | REDIS_TLS_SKIP_VERIFY           | false | TLS skipping certificate verification.
 redis.tls-ca-certificate  | REDIS_TLS_CA_CERTIFICATE        | | TLS CA certificate used to connect to Redis.
+redis.tls-certificate     | REDIS_TLS_CERTIFICATE           | | TLS certificate used to authenticate with Redis.
+redis.tls-key             | REDIS_TLS_KEY                   | | TLS key used to authenticate with Redis.
 redis.stream              | REDIS_STREAM                    | triggermesh | Stream name that stores the broker's CloudEvents.
 redis.group               | REDIS_GROUP                     | default | Redis stream consumer group name.
 redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 1000 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
