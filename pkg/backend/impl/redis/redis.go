@@ -81,15 +81,21 @@ func (s *redis) Init(ctx context.Context) error {
 			InsecureSkipVerify: s.args.TLSSkipVerify,
 		}
 
+		roots := x509.NewCertPool()
 		if s.args.TLSCACertificate != "" {
-			s.logger.Info("Adding CA Cert to TLS Config")
-
-			roots := x509.NewCertPool()
 			if ok := roots.AppendCertsFromPEM([]byte(s.args.TLSCACertificate)); !ok {
 				return errors.New("not valid CA Cert format")
 			}
+		}
 
-			tlscfg.RootCAs = roots
+		tlscfg.RootCAs = roots
+
+		if s.args.TLSCertificate != "" {
+			cert, err := tls.X509KeyPair([]byte(s.args.TLSCertificate), []byte(s.args.TLSKey))
+			if err != nil {
+				return fmt.Errorf("TLS key pair should be PEM formatted: %w", err)
+			}
+			tlscfg.Certificates = append(tlscfg.Certificates, cert)
 		}
 	}
 
@@ -116,15 +122,6 @@ func (s *redis) Init(ctx context.Context) error {
 		s.clientClose = client.Close
 		s.client = client
 	}
-
-	// clusterclient := goredis.NewClusterClient(&goredis.ClusterOptions{
-	// 	Addrs:     []string{s.args.Address},
-	// 	Username:  s.args.Username,
-	// 	Password:  s.args.Password,
-	// 	TLSConfig: tlscfg,
-	// })
-
-	// s.clientX = s.client
 
 	return s.Probe(ctx)
 }
