@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"time"
@@ -14,6 +15,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/triggermesh/brokers/pkg/config/broker"
 	replay "github.com/triggermesh/brokers/pkg/replay/redis"
 )
 
@@ -37,7 +39,6 @@ func main() {
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisUser := os.Getenv("REDIS_USER")
 	filter := os.Getenv("FILTER")
-	filterKind := os.Getenv("FILTER_KIND")
 	startTime := os.Getenv("START_TIME")
 	endTime := os.Getenv("END_TIME")
 
@@ -62,6 +63,13 @@ func main() {
 		}
 	}
 
+	fil := &broker.Filter{}
+	// unmarshal the filter
+	err = json.Unmarshal([]byte(filter), fil)
+	if err != nil {
+		logger.Panic("Error unmarshalling filter", zap.Error(err))
+	}
+
 	// convert the timestamps to
 
 	// Create a new Redis client
@@ -84,14 +92,13 @@ func main() {
 
 	// create a new replayAdapter
 	replayAdapter := &replay.ReplayAdapter{
-		Sink:       sink,
-		CeClient:   c,
-		Client:     client,
-		StartTime:  startTimeStamp,
-		EndTime:    endTimeStamp,
-		Filter:     filter,
-		FilterKind: filterKind,
-		Logger:     logger.Sugar(),
+		Sink:      sink,
+		CeClient:  c,
+		Client:    client,
+		StartTime: startTimeStamp,
+		EndTime:   endTimeStamp,
+		Filter:    []broker.Filter{*fil},
+		Logger:    logger.Sugar(),
 	}
 	// start the replayAdapter
 	if err := replayAdapter.ReplayEvents(ctx); err != nil {

@@ -13,11 +13,17 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"knative.dev/eventing/pkg/eventfilter"
+	"knative.dev/eventing/pkg/eventfilter/subscriptionsapi"
+	"knative.dev/pkg/logging"
+
+	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 	// Query the Redis database for everything in the "triggermesh" key
-	val, err := a.Client.XRange(context.Background(), "triggermesh", "-", "+").Result()
+	val, err := a.Client.XRange(context.Background(), "default.demo", "-", "+").Result()
 	if err != nil {
 		return fmt.Errorf("querying Redis database: %v", err)
 	}
@@ -26,18 +32,20 @@ func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("getting events within timestamps: %w", err)
 	}
-	if a.Filter != "" {
-		// Filter the events if a filter is provided.
-		a.Logger.Infof("filtering events with %s", a.Filter)
-		events = a.filterEvents(events)
-	}
-	// Send the events to the sink
+	a.Logger.Infof("found %d events within timestamps", len(events))
+	a.Logger.Infof("events: %+v", events)
 	var eventCounter int
 	startTime := time.Now()
 	// if there are events to send, and a sink is provided, send the events.
 	// otherwise,
 	if len(events) != 0 {
 		for _, event := range events {
+			res := subscriptionsapi.NewAllFilter(materializeFiltersList(context.Background(), a.Filter)...).Filter(context.Background(), event)
+			if res == eventfilter.FailFilter {
+				a.Logger.Debugf("event #%s failed filter, skipping", eventCounter)
+				return nil
+			}
+
 			a.Logger.Debugf("sending event #%s: %v", eventCounter, event)
 			// create a new context with target set to the sink
 
@@ -56,36 +64,6 @@ func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 		a.Logger.Infof("no events to send")
 	}
 	return nil
-}
-
-func (a *ReplayAdapter) filterEvents(events []cloudevents.Event) []cloudevents.Event {
-	var filteredEvents []cloudevents.Event
-	filter := a.Filter
-	for _, event := range events {
-		switch a.FilterKind {
-		case "type":
-			if event.Type() == filter {
-				filteredEvents = append(filteredEvents, event)
-			}
-		case "source":
-			if event.Source() == filter {
-				filteredEvents = append(filteredEvents, event)
-			}
-		case "subject":
-			if event.Subject() == filter {
-				filteredEvents = append(filteredEvents, event)
-			}
-		case "datacontenttype":
-			if event.DataContentType() == filter {
-				filteredEvents = append(filteredEvents, event)
-			}
-		case "id":
-			if event.ID() == filter {
-				filteredEvents = append(filteredEvents, event)
-			}
-		}
-	}
-	return filteredEvents
 }
 
 func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, end time.Time) []cloudevents.Event {
@@ -134,4 +112,52 @@ func (a *ReplayAdapter) getEventsWithinTimestamps(val []redis.XMessage, start, e
 		}
 	}
 	return events
+}
+
+func materializeFiltersList(ctx context.Context, filters []cfgbroker.Filter) []eventfilter.Filter {
+	materializedFilters := make([]eventfilter.Filter, 0, len(filters))
+	for _, f := range filters {
+		f := materializeSubscriptionsAPIFilter(ctx, f)
+		if f == nil {
+			logging.FromContext(ctx).Warnw("Failed to parse filter. Skipping filter.", zap.Any("filter", f))
+			continue
+		}
+		materializedFilters = append(materializedFilters, f)
+	}
+	return materializedFilters
+}
+
+func materializeSubscriptionsAPIFilter(ctx context.Context, filter cfgbroker.Filter) eventfilter.Filter {
+	var materializedFilter eventfilter.Filter
+	var err error
+	switch {
+	case len(filter.Exact) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		materializedFilter, err = subscriptionsapi.NewExactFilter(filter.Exact)
+		if err != nil {
+			logging.FromContext(ctx).Debugw("Invalid exact expression", zap.Any("filters", filter.Exact), zap.Error(err))
+			return nil
+		}
+	case len(filter.Prefix) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		materializedFilter, err = subscriptionsapi.NewPrefixFilter(filter.Prefix)
+		if err != nil {
+			logging.FromContext(ctx).Debugw("Invalid prefix expression", zap.Any("filters", filter.Exact), zap.Error(err))
+			return nil
+		}
+	case len(filter.Suffix) > 0:
+		// The webhook validates that this map has only a single key:value pair.
+		materializedFilter, err = subscriptionsapi.NewSuffixFilter(filter.Suffix)
+		if err != nil {
+			logging.FromContext(ctx).Debugw("Invalid suffix expression", zap.Any("filters", filter.Exact), zap.Error(err))
+			return nil
+		}
+	case len(filter.All) > 0:
+		materializedFilter = subscriptionsapi.NewAllFilter(materializeFiltersList(ctx, filter.All)...)
+	case len(filter.Any) > 0:
+		materializedFilter = subscriptionsapi.NewAnyFilter(materializeFiltersList(ctx, filter.Any)...)
+	case filter.Not != nil:
+		materializedFilter = subscriptionsapi.NewNotFilter(materializeSubscriptionsAPIFilter(ctx, *filter.Not))
+	}
+	return materializedFilter
 }

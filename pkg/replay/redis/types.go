@@ -7,6 +7,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/triggermesh/brokers/pkg/config/broker"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -15,14 +16,13 @@ import (
 // ReplayAdapter is the main struct for the replay adapter.
 // it conains all the necessary information needed to replay events.
 type ReplayAdapter struct {
-	Sink       string
-	CeClient   cloudevents.Client
-	Logger     *zap.SugaredLogger
-	Client     *redis.Client
-	StartTime  time.Time
-	EndTime    time.Time
-	Filter     string
-	FilterKind string
+	Sink      string
+	CeClient  cloudevents.Client
+	Logger    *zap.SugaredLogger
+	Client    *redis.Client
+	StartTime time.Time
+	EndTime   time.Time
+	Filter    []broker.Filter
 }
 
 // REvent represents the structure of an expected Cloudevent stored
