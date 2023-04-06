@@ -21,8 +21,9 @@ type RedisArgs struct {
 	TLSKey           string `help:"TLS Certificate key to connect to Redis." env:"TLS_KEY"`
 	TLSCACertificate string `help:"CA Certificate to connect to Redis." name:"tls-ca-certificate" env:"TLS_CA_CERTIFICATE"`
 
-	Stream string `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
-	Group  string `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
+	ProbeCommand string `help:"Redis command to be run when probing the connection." enum:"CLIENTID,XINFOSTREAM,NONE" env:"PROBE_COMMAND" default:"NONE"`
+	Stream       string `help:"Stream name that stores the broker's CloudEvents." env:"STREAM" default:"triggermesh"`
+	Group        string `help:"Redis stream consumer group name." env:"GROUP" default:"default"`
 	// Instance at the Redis stream consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 

@@ -282,14 +282,29 @@ func (s *redis) unsubscribe(name string) {
 }
 
 func (s *redis) Probe(ctx context.Context) error {
-	res := s.client.ClientID(ctx)
-	id, err := res.Result()
-	s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
+	switch s.args.ProbeCommand {
+	case "CLIENTID":
+		res := s.client.ClientID(ctx)
+		id, err := res.Result()
+		if err != nil {
+			return fmt.Errorf("failed probing Redis, retrieving client ID: %w", err)
+		}
 
-	if err == nil {
-		return nil
+		s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
+
+	case "XINFOSTREAM":
+		res := s.client.XInfoStream(ctx, s.args.Stream)
+		_, err := res.Result()
+		if err != nil && !strings.Contains(err.Error(), "no such key") {
+			return fmt.Errorf("failed probing Redis, retrieving stream %s info: %w", s.args.Stream, err)
+		}
+
+		s.logger.Debugw("Probing redis")
+
+	case "NONE":
+	default:
+		return fmt.Errorf("not a valid probing option: %s", s.args.ProbeCommand)
 	}
 
-	// Add some context since Redis client sometimes is not clear about what failed.
-	return fmt.Errorf("failed probing Redis, retrieving client ID: %w", err)
+	return nil
 }
