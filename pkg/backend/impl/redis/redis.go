@@ -290,6 +290,15 @@ func (s *redis) Probe(ctx context.Context) error {
 		return nil
 	}
 
+	info := s.client.Ping(ctx)
+	result, errResult := info.Result()
+	s.logger.Debugw("Probing redis with PING command", zap.String("info", result))
+	if errResult == nil {
+		return nil
+	} else {
+		err = errResult
+	}
+
 	// Add some context since Redis client sometimes is not clear about what failed.
 	return fmt.Errorf("failed probing Redis, retrieving client ID: %w", err)
 }
