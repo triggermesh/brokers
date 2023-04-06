@@ -284,21 +284,22 @@ func (s *redis) unsubscribe(name string) {
 func (s *redis) Probe(ctx context.Context) error {
 	res := s.client.ClientID(ctx)
 	id, err := res.Result()
-	s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
 
 	if err == nil {
+		s.logger.Debugw("Probing redis", zap.Int64("client_id", id))
 		return nil
 	}
 
+	s.logger.Info("Probing redis with CLIENT ID command failed, trying PING command", zap.Error(err))
+
 	info := s.client.Ping(ctx)
-	result, errResult := info.Result()
-	s.logger.Debugw("Probing redis with PING command", zap.String("info", result))
-	if errResult == nil {
+	result, err := info.Result()
+
+	if err == nil {
+		s.logger.Debugw("Probing redis with PING command", zap.String("info", result))
 		return nil
-	} else {
-		err = errResult
 	}
 
 	// Add some context since Redis client sometimes is not clear about what failed.
-	return fmt.Errorf("failed probing Redis, retrieving client ID: %w", err)
+	return fmt.Errorf("failed probing Redis, using PING: %w", err)
 }
