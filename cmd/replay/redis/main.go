@@ -38,9 +38,9 @@ func main() {
 	// optional environment variables
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisUser := os.Getenv("REDIS_USER")
-	filter := os.Getenv("FILTER")
 	startTime := os.Getenv("START_TIME")
 	endTime := os.Getenv("END_TIME")
+	filters := os.Getenv("FILTERS")
 
 	var startTimeStamp time.Time
 	var endTimeStamp time.Time
@@ -50,7 +50,7 @@ func main() {
 		// parse the start and end timestamps
 		startTimeStamp, err = time.Parse(time.RFC3339, startTime)
 		if err != nil {
-			logger.Panic("Error parsing start timestamp", zap.Error(err))
+			startTimeStamp = time.Unix(0, 0)
 		}
 	}
 	if endTime == "" {
@@ -59,17 +59,20 @@ func main() {
 		// parse the start and end timestamps
 		endTimeStamp, err = time.Parse(time.RFC3339, endTime)
 		if err != nil {
-			logger.Panic("Error parsing start timestamp", zap.Error(err))
+			endTimeStamp = time.Now()
 		}
 	}
 
-	fil := &broker.Filter{}
-	// unmarshal the filter
-	err = json.Unmarshal([]byte(filter), fil)
-	if err != nil {
-		logger.Panic("Error unmarshalling filter", zap.Error(err))
-	}
+	var filterList []broker.Filter
 
+	if filters != "" {
+		var fil broker.Filter
+		err = json.Unmarshal([]byte(filters), &fil)
+		if err != nil {
+			log.Fatal("Error unmarshalling filters: ", err)
+		}
+		filterList = append(filterList, fil)
+	}
 	// convert the timestamps to
 
 	// Create a new Redis client
@@ -97,7 +100,7 @@ func main() {
 		Client:    client,
 		StartTime: startTimeStamp,
 		EndTime:   endTimeStamp,
-		Filter:    []broker.Filter{*fil},
+		Filter:    filterList,
 		Logger:    logger.Sugar(),
 	}
 	// start the replayAdapter

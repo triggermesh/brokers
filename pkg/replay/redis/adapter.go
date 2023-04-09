@@ -36,18 +36,20 @@ func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 	a.Logger.Infof("events: %+v", events)
 	var eventCounter int
 	startTime := time.Now()
+	// create a new context with target set to the sink
+	ctx = cloudevents.ContextWithTarget(context.Background(), a.Sink)
 	// if there are events to send, and a sink is provided, send the events.
 	// otherwise,
 	if len(events) != 0 {
 		for _, event := range events {
-			res := subscriptionsapi.NewAllFilter(materializeFiltersList(context.Background(), a.Filter)...).Filter(context.Background(), event)
+			materializedFilters := materializeFiltersList(context.Background(), a.Filter)
+			res := subscriptionsapi.NewAllFilter(materializedFilters...).Filter(context.Background(), event)
 			if res == eventfilter.FailFilter {
 				a.Logger.Debugf("event #%s failed filter, skipping", eventCounter)
-				return nil
+				continue
 			}
 
 			a.Logger.Debugf("sending event #%s: %v", eventCounter, event)
-			// create a new context with target set to the sink
 
 			if result := a.CeClient.Send(ctx, event); !cloudevents.IsACK(result) {
 				a.Logger.Errorf("Error sending event: %v", result.Error)
@@ -58,8 +60,12 @@ func (a *ReplayAdapter) ReplayEvents(ctx context.Context) error {
 		// Calculate the time it took to send the events.
 		elapsedTime := endTime.Sub(startTime)
 		// Calculate the average time it took to send an event.
-		avgTime := elapsedTime / time.Duration(eventCounter)
-		a.Logger.Infof("sent %d events in %v, average time per event: %v", eventCounter, elapsedTime, avgTime)
+		if eventCounter > 0 {
+			avgTime := elapsedTime / time.Duration(eventCounter)
+			a.Logger.Infof("sent %d events in %v, average time per event: %v", eventCounter, elapsedTime, avgTime)
+		} else {
+			a.Logger.Infof("no events to send")
+		}
 	} else {
 		a.Logger.Infof("no events to send")
 	}
