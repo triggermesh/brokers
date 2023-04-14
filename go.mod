@@ -55,6 +55,7 @@ require (
 require (
 	github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.13.0
 	go.opencensus.io v0.24.0
+	go.uber.org/automaxprocs v1.4.0
 )
 
 require (
