@@ -64,14 +64,11 @@ func main() {
 	}
 
 	var filterList []broker.Filter
-
 	if filters != "" {
-		var fil broker.Filter
-		err = json.Unmarshal([]byte(filters), &fil)
+		err = json.Unmarshal([]byte(filters), &filterList)
 		if err != nil {
 			log.Fatal("Error unmarshalling filters: ", err)
 		}
-		filterList = append(filterList, fil)
 	}
 	// convert the timestamps to
 
