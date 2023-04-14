@@ -185,6 +185,7 @@ func (s *Globals) Initialize() error {
 	if err != nil {
 		return fmt.Errorf("could not match available CPUs to processes %w", err)
 	}
+	defer undo()
 
 	switch {
 	case s.ObservabilityConfigPath != "":
