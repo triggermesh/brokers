@@ -27,6 +27,8 @@ type subscription struct {
 	name     string
 	group    string
 
+	trackingEnabled bool
+
 	// caller's callback for dispatching events from Redis.
 	ccbDispatch backend.ConsumerDispatcher
 
@@ -132,20 +134,20 @@ func (s *subscription) start() {
 					continue
 				}
 
-				if err = ce.Context.SetExtension(BackendIDAttribute, msg.ID); err != nil {
-					s.logger.Errorw(fmt.Sprintf("could not set %s attributes for the Redis message %s. Tracking will not be possible.", BackendIDAttribute, msg.ID),
-						zap.Error(err))
-				}
-
-				go func() {
-					s.ccbDispatch(ce)
-					id := ce.Extensions()[BackendIDAttribute].(string)
-
-					if err := s.ack(id); err != nil {
-						s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", id, ce.Context.GetID()),
+				if s.trackingEnabled {
+					if err = ce.Context.SetExtension(BackendIDAttribute, msg.ID); err != nil {
+						s.logger.Errorw(fmt.Sprintf("could not set %s attributes for the Redis message %s. Tracking will not be possible.", BackendIDAttribute, msg.ID),
 							zap.Error(err))
 					}
-				}()
+				}
+
+				go func(msgID string) {
+					s.ccbDispatch(ce)
+					if err := s.ack(msgID); err != nil {
+						s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", msgID, ce.Context.GetID()),
+							zap.Error(err))
+					}
+				}(msg.ID)
 
 				// If we are processing pending messages the ACK might take a
 				// while to be sent. We need to set the message ID so that the

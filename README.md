@@ -227,6 +227,7 @@ redis.tls-skip-verify     | REDIS_TLS_SKIP_VERIFY           | false | TLS skippi
 redis.tls-ca-certificate  | REDIS_TLS_CA_CERTIFICATE        | | TLS CA certificate used to connect to Redis.
 redis.tls-certificate     | REDIS_TLS_CERTIFICATE           | | TLS certificate used to authenticate with Redis.
 redis.tls-key             | REDIS_TLS_KEY                   | | TLS key used to authenticate with Redis.
+redis.tracking-id-enabled | REDIS_TRACKING_ID_ENABLED       | false | Adds the Redis ID for the event as `triggermeshbackendid` CloudEvents attribute.
 redis.stream              | REDIS_STREAM                    | triggermesh | Stream name that stores the broker's CloudEvents.
 redis.group               | REDIS_GROUP                     | default | Redis stream consumer group name.
 redis.stream-max-len      | REDIS_STREAM_MAX_LEN            | 1000 | Limit the number of items in a stream by trimming it. Set to 0 for unlimited.
