@@ -226,6 +226,8 @@ func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 		name:     name,
 		group:    group,
 
+		trackingEnabled: s.args.TrackingIDEnabled,
+
 		// caller's callback for dispatching events from Redis.
 		ccbDispatch: ccb,
 
