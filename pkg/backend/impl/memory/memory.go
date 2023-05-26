@@ -59,6 +59,10 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
+func (s *memory) SubscribeBounded(name, startDate, endDate string, ccb backend.ConsumerDispatcher) error {
+	return nil
+}
+
 func (s *memory) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 	s.m.Lock()
 	defer s.m.Unlock()

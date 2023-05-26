@@ -21,7 +21,7 @@ import (
 )
 
 type subscriber struct {
-	trigger cfgbroker.Trigger
+	trigger cfgbroker.TriggerInterface
 
 	name     string
 	backend  backend.Interface
@@ -43,37 +43,39 @@ func (s *subscriber) unsubscribe() {
 	s.backend.Unsubscribe(s.name)
 }
 
-func (s *subscriber) updateTrigger(trigger cfgbroker.Trigger) error {
+func (s *subscriber) updateTrigger(trigger cfgbroker.TriggerInterface) error {
+	target := trigger.GetTarget()
+
 	// Target URL might be informed as empty to support temporary
 	// unavailability.
 	url := ""
-	if trigger.Target.URL != nil {
-		url = *trigger.Target.URL
+	if target.URL != nil {
+		url = *target.URL
 	}
 	ctx := cloudevents.ContextWithTarget(s.parentCtx, url)
 
-	if trigger.Target.DeliveryOptions != nil &&
-		trigger.Target.DeliveryOptions.Retry != nil &&
-		*trigger.Target.DeliveryOptions.Retry >= 1 &&
-		trigger.Target.DeliveryOptions.BackoffPolicy != nil {
+	if target.DeliveryOptions != nil &&
+		target.DeliveryOptions.Retry != nil &&
+		*target.DeliveryOptions.Retry >= 1 &&
+		target.DeliveryOptions.BackoffPolicy != nil {
 
-		delay, err := period.Parse(*trigger.Target.DeliveryOptions.BackoffDelay)
+		delay, err := period.Parse(*target.DeliveryOptions.BackoffDelay)
 		if err != nil {
 			return fmt.Errorf("could not apply trigger %q configuration due to backoff delay parsing: %w", s.name, err)
 		}
 
-		switch *trigger.Target.DeliveryOptions.BackoffPolicy {
+		switch *target.DeliveryOptions.BackoffPolicy {
 		case cfgbroker.BackoffPolicyLinear:
 			ctx = cloudevents.ContextWithRetriesLinearBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 
 		case cfgbroker.BackoffPolicyExponential:
 			ctx = cloudevents.ContextWithRetriesExponentialBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 
 		default:
 			ctx = cloudevents.ContextWithRetriesConstantBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*target.DeliveryOptions.Retry))
 		}
 	}
 
@@ -90,13 +92,13 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	res := subscriptionsapi.NewAllFilter(materializeFiltersList(s.ctx, s.trigger.Filters)...).Filter(s.ctx, *event)
+	res := subscriptionsapi.NewAllFilter(materializeFiltersList(s.ctx, s.trigger.GetFilters())...).Filter(s.ctx, *event)
 	if res == eventfilter.FailFilter {
 		s.logger.Debugw("Skipped delivery due to filter", zap.Any("event", *event))
 		return
 	}
 
-	t := s.trigger.Target
+	t := s.trigger.GetTarget()
 	s.dispatchCloudEventToTarget(&t, event)
 }
 

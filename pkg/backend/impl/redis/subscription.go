@@ -26,6 +26,7 @@ type subscription struct {
 	stream   string
 	name     string
 	group    string
+	endDate  string
 
 	trackingEnabled bool
 
@@ -66,7 +67,7 @@ func (s *subscription) start() {
 	go func() {
 		for {
 			// Check at the begining of each iteration if the exit loop flag has
-			// been signaled due to done context.
+			// been signaled due to done context or because the endDate has been reached.
 			if exitLoop {
 				break
 			}
@@ -132,6 +133,15 @@ func (s *subscription) start() {
 					}
 
 					continue
+				}
+
+				// If an end date has been specified, compare the current message ID
+				// with the end date. If the message ID is greater than the end date,
+				// set the exitLoop flag to true to stop processing further messages.
+				if s.endDate != "" {
+					if msg.ID > s.endDate {
+						exitLoop = true
+					}
 				}
 
 				if s.trackingEnabled {

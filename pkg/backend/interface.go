@@ -33,6 +33,7 @@ type Subscribable interface {
 	// processed and won't be delivered anymore.
 	Subscribe(name string, ccb ConsumerDispatcher) error
 
+	SubscribeBounded(name, startDate, endDate string, ccb ConsumerDispatcher) error
 	// Unsubscribe is a method that removes a subscription referencing
 	// it by name, returning when all pending (already read) messages
 	// have been dispatched.

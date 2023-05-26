@@ -190,6 +190,77 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
+// SubscribeBounded is a variant of the Subscribe function that supports bounded subscriptions.
+// It adds the option of using a startDate and endDate for the replay feature.
+func (s *redis) SubscribeBounded(name, startDate, endDate string, ccb backend.ConsumerDispatcher) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// avoid subscriptions if disconnection is going on
+	if s.disconnecting {
+		return errors.New("cannot create new subscriptions while disconnecting")
+	}
+
+	if _, ok := s.subs[name]; ok {
+		return fmt.Errorf("subscription for %q alredy exists", name)
+	}
+
+	startDateStreamID, err := convertDateToStreamID(startDate)
+	if err != nil {
+		return fmt.Errorf("could not convert start date to stream ID: %w", err)
+	}
+
+	endDateStreamID, err := convertDateToStreamID(endDate)
+	if err != nil {
+		return fmt.Errorf("could not convert end date to stream ID: %w", err)
+	}
+
+	// Create the consumer group for this subscription.
+	group := s.args.Group + "." + name
+	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, startDateStreamID)
+	_, err = res.Result()
+	if err != nil {
+		// Ignore errors when the group already exists.
+		if !strings.HasPrefix(err.Error(), "BUSYGROUP") {
+			return err
+		}
+		s.logger.Debug("Consumer group already exists", zap.String("group", group))
+	}
+
+	// We don't use the parent context but create a new one so that we can control
+	// how subscriptions are finished by calling cancel at our will, either when the
+	// global context is called, or when unsubscribing.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	subs := subscription{
+		instance: s.args.Instance,
+		stream:   s.args.Stream,
+		name:     name,
+		group:    group,
+		endDate:  endDateStreamID,
+
+		trackingEnabled: s.args.TrackingIDEnabled,
+
+		// caller's callback for dispatching events from Redis.
+		ccbDispatch: ccb,
+
+		// cancel function let us control when we want to exit the subscription loop.
+		ctx:    ctx,
+		cancel: cancel,
+		// stoppedCh signals when a subscription has completely finished.
+		stoppedCh: make(chan struct{}),
+
+		client: s.client,
+		logger: s.logger,
+	}
+
+	s.subs[name] = subs
+	s.wgSubs.Add(1)
+	subs.start()
+
+	return nil
+}
+
 func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -304,4 +375,19 @@ func (s *redis) Probe(ctx context.Context) error {
 
 	// Add some context since Redis client sometimes is not clear about what failed.
 	return fmt.Errorf("failed probing Redis, using PING: %w", err)
+}
+
+// convertDateToStreamID converts a RFC3339 date string to a Redis Stream ID.
+// It uses the date to create a timestamp in milliseconds for the ID, and appends "-0"
+// to indicate the first event after this timestamp.
+func convertDateToStreamID(date string) (string, error) {
+	t, err := time.Parse(time.RFC3339, date)
+	if err != nil {
+		return "", err
+	}
+
+	milliseconds := t.UnixNano() / int64(time.Millisecond)
+
+	streamID := fmt.Sprintf("%d-0", milliseconds)
+	return streamID, nil
 }

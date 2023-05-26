@@ -59,50 +59,22 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			sub.unsubscribe()
 			delete(m.subscribers, name)
 		}
+		if _, ok := c.ReplayTriggers[name]; !ok {
+			m.logger.Infow("Deleting subscription", zap.String("name", name))
+			sub.unsubscribe()
+			delete(m.subscribers, name)
+		}
 	}
 
 	for name, trigger := range c.Triggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			// Create CloudEvents client with reporter for Trigger.
-			ir, err := metrics.NewReporter(m.ctx, name)
-			if err != nil {
-				m.logger.Errorw("Failed to setup trigger stats reporter", zap.String("trigger", name), zap.Error(err))
+			s := m.createSubscriber(name, trigger, false)
+			if s == nil {
 				continue
 			}
-
-			p, err := obshttp.NewObservedHTTP()
-			if err != nil {
-				m.logger.Errorw("Could not create CloudEvents HTTP protocol", zap.String("trigger", name), zap.Error(err))
-				continue
-			}
-
-			ceClient, err := ceclient.New(p, ceclient.WithObservabilityService(metrics.NewOpenCensusObservabilityService(ir)))
-			if err != nil {
-				m.logger.Errorw("Could not create CloudEvents HTTP client", zap.String("trigger", name), zap.Error(err))
-			}
-
-			s = &subscriber{
-				name:      name,
-				backend:   m.backend,
-				ceClient:  ceClient,
-				parentCtx: m.ctx,
-				logger:    m.logger,
-			}
-
-			m.logger.Infow("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
-			if err := s.updateTrigger(trigger); err != nil {
-				m.logger.Errorw("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
-				continue
-			}
-
-			if err := m.backend.Subscribe(name, s.dispatchCloudEvent); err != nil {
-				m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
-				continue
-			}
-
 			m.subscribers[name] = s
-			m.logger.Infow("Subscription for trigger updated", zap.String("name", name))
+			m.logger.Infow("Subscription for replay trigger updated", zap.String("name", name))
 			continue
 		}
 
@@ -118,4 +90,80 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			return
 		}
 	}
+
+	for name, replayTrigger := range c.ReplayTriggers {
+		s, ok := m.subscribers[name]
+		if !ok {
+			s := m.createSubscriber(name, replayTrigger, false)
+			if s == nil {
+				continue
+			}
+			m.subscribers[name] = s
+			m.logger.Infow("Subscription for replay trigger updated", zap.String("name", name))
+			continue
+		}
+
+		if reflect.DeepEqual(s.trigger, replayTrigger) {
+			// If there are no changes to the subscription, skip.
+			continue
+		}
+
+		// Update existing subscription with new data.
+		m.logger.Infow("Updating subscription upon replay trigger configuration", zap.String("name", name), zap.Any("trigger", replayTrigger))
+		if err := s.updateTrigger(replayTrigger); err != nil {
+			m.logger.Errorw("Could not setup replay trigger", zap.String("name", name), zap.Error(err))
+			return
+		}
+	}
+
+}
+
+func (m *Manager) createSubscriber(name string, trigger cfgbroker.TriggerInterface, replay bool) *subscriber {
+	// Create CloudEvents client with reporter for Trigger.
+	ir, err := metrics.NewReporter(m.ctx, name)
+	if err != nil {
+		m.logger.Errorw("Failed to setup trigger stats reporter", zap.String("trigger", name), zap.Error(err))
+		return nil
+	}
+
+	p, err := obshttp.NewObservedHTTP()
+	if err != nil {
+		m.logger.Errorw("Could not create CloudEvents HTTP protocol", zap.String("trigger", name), zap.Error(err))
+		return nil
+	}
+
+	ceClient, err := ceclient.New(p, ceclient.WithObservabilityService(metrics.NewOpenCensusObservabilityService(ir)))
+	if err != nil {
+		m.logger.Errorw("Could not create CloudEvents HTTP client", zap.String("trigger", name), zap.Error(err))
+		return nil
+	}
+
+	s := &subscriber{
+		name:      name,
+		backend:   m.backend,
+		ceClient:  ceClient,
+		parentCtx: m.ctx,
+		logger:    m.logger,
+	}
+
+	m.logger.Infow("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
+	if err := s.updateTrigger(trigger); err != nil {
+		m.logger.Errorw("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
+		return nil
+	}
+
+	if replay {
+		rTrigger := trigger.(cfgbroker.ReplayTrigger)
+		if err := m.backend.SubscribeBounded(name, rTrigger.StartDate, rTrigger.EndDate, s.dispatchCloudEvent); err != nil {
+			m.logger.Errorw("Could not create subscription for replay trigger", zap.String("trigger", name), zap.Error(err))
+			return nil
+		}
+	} else {
+		if err := m.backend.Subscribe(name, s.dispatchCloudEvent); err != nil {
+			m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
+			return nil
+		}
+	}
+
+	return s
 }

@@ -145,6 +145,34 @@ type Trigger struct {
 	Target  Target   `json:"target"`
 }
 
+type ReplayTrigger struct {
+	Filters   []Filter `json:"filters,omitempty"`
+	Target    Target   `json:"target"`
+	StartDate string   `json:"startDate"`
+	EndDate   string   `json:"endDate"`
+}
+
+type TriggerInterface interface {
+	GetTarget() Target
+	GetFilters() []Filter
+}
+
+func (t Trigger) GetTarget() Target {
+	return t.Target
+}
+
+func (t Trigger) GetFilters() []Filter {
+	return t.Filters
+}
+
+func (rt ReplayTrigger) GetTarget() Target {
+	return rt.Target
+}
+
+func (rt ReplayTrigger) GetFilters() []Filter {
+	return rt.Filters
+}
+
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
@@ -156,9 +184,21 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
 }
 
+func (t *ReplayTrigger) Validate(ctx context.Context) *apis.FieldError {
+	var errs *apis.FieldError
+
+	if t == nil {
+		return nil
+	}
+	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
+
+	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
+}
+
 type Config struct {
-	Ingest   *Ingest            `json:"ingest,omitempty"`
-	Triggers map[string]Trigger `json:"triggers"`
+	Ingest         *Ingest                  `json:"ingest,omitempty"`
+	Triggers       map[string]Trigger       `json:"triggers"`
+	ReplayTriggers map[string]ReplayTrigger `json:"replayTriggers"`
 }
 
 func (c *Config) Validate(ctx context.Context) *apis.FieldError {
