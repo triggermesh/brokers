@@ -139,9 +139,12 @@ func (s *subscription) start() {
 				// with the end date. If the message ID is greater than the end date,
 				// set the exitLoop flag to true to stop processing further messages.
 				if s.endDate != "" {
-					if msg.ID > s.endDate {
-						exitLoop = true
+					msgIDIsGreater, err := compareStreamIDs(msg.ID, s.endDate)
+					if err != nil {
+						s.logger.Errorw(fmt.Sprintf("could not compare the Redis message %s with the end date %s", msg.ID, s.endDate),
+							zap.Error(err))
 					}
+					exitLoop = msgIDIsGreater
 				}
 
 				if s.trackingEnabled {

@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -390,4 +391,35 @@ func convertDateToStreamID(date string) (string, error) {
 
 	streamID := fmt.Sprintf("%d-0", milliseconds)
 	return streamID, nil
+}
+
+// compareStreamIDs compares two Redis Stream IDs (msgID and endDate) and returns true if msgID is greater than endDate.
+// Both IDs are composed of a timestamp and a sequence number, separated by a dash ("-").
+func compareStreamIDs(msgID, endDate string) (bool, error) {
+	msgIDParts := strings.Split(msgID, "-")
+	endDateParts := strings.Split(endDate, "-")
+
+	if len(msgIDParts) != 2 || len(endDateParts) != 2 {
+		return false, fmt.Errorf("invalid stream ID format")
+	}
+
+	msgIDTimestamp, err1 := strconv.ParseInt(msgIDParts[0], 10, 64)
+	endDateTimestamp, err2 := strconv.ParseInt(endDateParts[0], 10, 64)
+
+	if err1 != nil || err2 != nil {
+		return false, fmt.Errorf("could not convert timestamps: %v, %v", err1, err2)
+	}
+
+	if msgIDTimestamp != endDateTimestamp {
+		return msgIDTimestamp > endDateTimestamp, nil
+	}
+
+	msgIDSeq, err1 := strconv.ParseInt(msgIDParts[1], 10, 64)
+	endDateSeq, err2 := strconv.ParseInt(endDateParts[1], 10, 64)
+
+	if err1 != nil || err2 != nil {
+		return false, fmt.Errorf("could not convert sequence numbers: %v, %v", err1, err2)
+	}
+
+	return msgIDSeq > endDateSeq, nil
 }
