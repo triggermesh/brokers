@@ -155,6 +155,8 @@ type ReplayTrigger struct {
 type TriggerInterface interface {
 	GetTarget() Target
 	GetFilters() []Filter
+	GetStartDate() string
+	GetEndDate() string
 }
 
 func (t Trigger) GetTarget() Target {
@@ -165,12 +167,28 @@ func (t Trigger) GetFilters() []Filter {
 	return t.Filters
 }
 
+func (t Trigger) GetStartDate() string {
+	return ""
+}
+
+func (t Trigger) GetEndDate() string {
+	return ""
+}
+
 func (rt ReplayTrigger) GetTarget() Target {
 	return rt.Target
 }
 
 func (rt ReplayTrigger) GetFilters() []Filter {
 	return rt.Filters
+}
+
+func (rt ReplayTrigger) GetStartDate() string {
+	return rt.StartDate
+}
+
+func (rt ReplayTrigger) GetEndDate() string {
+	return rt.EndDate
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {

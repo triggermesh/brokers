@@ -20,7 +20,8 @@ import (
 )
 
 type Subscription struct {
-	Trigger cfgbroker.Trigger
+	Trigger       cfgbroker.Trigger
+	ReplayTrigger cfgbroker.ReplayTrigger
 }
 
 type Manager struct {
@@ -94,7 +95,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 	for name, replayTrigger := range c.ReplayTriggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			s := m.createSubscriber(name, replayTrigger, false)
+			s := m.createSubscriber(name, replayTrigger, true)
 			if s == nil {
 				continue
 			}
@@ -153,8 +154,7 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.TriggerInterfa
 	}
 
 	if replay {
-		rTrigger := trigger.(cfgbroker.ReplayTrigger)
-		if err := m.backend.SubscribeBounded(name, rTrigger.StartDate, rTrigger.EndDate, s.dispatchCloudEvent); err != nil {
+		if err := m.backend.SubscribeBounded(name, trigger.GetStartDate(), trigger.GetEndDate(), s.dispatchCloudEvent); err != nil {
 			m.logger.Errorw("Could not create subscription for replay trigger", zap.String("trigger", name), zap.Error(err))
 			return nil
 		}
