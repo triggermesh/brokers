@@ -75,7 +75,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 				continue
 			}
 			m.subscribers[name] = s
-			m.logger.Infow("Subscription for replay trigger updated", zap.String("name", name))
+			m.logger.Infow("Subscription for trigger updated", zap.String("name", name))
 			continue
 		}
 

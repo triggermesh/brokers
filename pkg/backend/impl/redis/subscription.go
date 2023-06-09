@@ -136,16 +136,16 @@ func (s *subscription) start() {
 				}
 
 				// If an end date has been specified, compare the current message ID
-				// with the end date. If the message ID is older than the end date,
+				// with the end date. If the message ID is newer than the end date,
 				// exit the loop.
 				if s.endDate != "" {
-					msgIDIsOlder, err := compareStreamIDs(msg.ID, s.endDate)
+					msgIDIsNewer, err := compareStreamIDs(msg.ID, s.endDate)
 					if err != nil {
 						s.logger.Errorw(fmt.Sprintf("could not compare the Redis message %s with the end date %s", msg.ID, s.endDate),
 							zap.Error(err))
 					}
-					exitLoop = msgIDIsOlder
-					if msgIDIsOlder {
+					exitLoop = msgIDIsNewer
+					if msgIDIsNewer {
 						break
 					}
 				}
