@@ -20,8 +20,8 @@ import (
 )
 
 type Subscription struct {
-	Trigger       cfgbroker.Trigger
-	ReplayTrigger cfgbroker.ReplayTrigger
+	Trigger cfgbroker.Trigger
+	Replay  cfgbroker.Replay
 }
 
 type Manager struct {
@@ -60,7 +60,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			sub.unsubscribe()
 			delete(m.subscribers, name)
 		}
-		if _, ok := c.ReplayTriggers[name]; !ok {
+		if _, ok := c.Replays[name]; !ok {
 			m.logger.Infow("Deleting subscription", zap.String("name", name))
 			sub.unsubscribe()
 			delete(m.subscribers, name)
@@ -92,27 +92,27 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 		}
 	}
 
-	for name, replayTrigger := range c.ReplayTriggers {
+	for name, replay := range c.Replays {
 		s, ok := m.subscribers[name]
 		if !ok {
-			s := m.createSubscriber(name, replayTrigger, true)
+			s := m.createSubscriber(name, replay, true)
 			if s == nil {
 				continue
 			}
 			m.subscribers[name] = s
-			m.logger.Infow("Subscription for replay trigger updated", zap.String("name", name))
+			m.logger.Infow("Subscription for replay updated", zap.String("name", name))
 			continue
 		}
 
-		if reflect.DeepEqual(s.trigger, replayTrigger) {
+		if reflect.DeepEqual(s.trigger, replay) {
 			// If there are no changes to the subscription, skip.
 			continue
 		}
 
 		// Update existing subscription with new data.
-		m.logger.Infow("Updating subscription upon replay trigger configuration", zap.String("name", name), zap.Any("trigger", replayTrigger))
-		if err := s.updateTrigger(replayTrigger); err != nil {
-			m.logger.Errorw("Could not setup replay trigger", zap.String("name", name), zap.Error(err))
+		m.logger.Infow("Updating subscription upon replay configuration", zap.String("name", name), zap.Any("replay", replay))
+		if err := s.updateTrigger(replay); err != nil {
+			m.logger.Errorw("Could not setup replay", zap.String("name", name), zap.Error(err))
 			return
 		}
 	}
@@ -155,7 +155,7 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.TriggerInterfa
 
 	if replay {
 		if err := m.backend.SubscribeBounded(name, trigger.GetStartDate(), trigger.GetEndDate(), s.dispatchCloudEvent); err != nil {
-			m.logger.Errorw("Could not create subscription for replay trigger", zap.String("trigger", name), zap.Error(err))
+			m.logger.Errorw("Could not create subscription for replay", zap.String("trigger", name), zap.Error(err))
 			return nil
 		}
 	} else {

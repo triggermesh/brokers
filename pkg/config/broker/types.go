@@ -145,7 +145,7 @@ type Trigger struct {
 	Target  Target   `json:"target"`
 }
 
-type ReplayTrigger struct {
+type Replay struct {
 	Filters   []Filter `json:"filters,omitempty"`
 	Target    Target   `json:"target"`
 	StartDate string   `json:"startDate"`
@@ -175,20 +175,20 @@ func (t Trigger) GetEndDate() string {
 	return ""
 }
 
-func (rt ReplayTrigger) GetTarget() Target {
-	return rt.Target
+func (r Replay) GetTarget() Target {
+	return r.Target
 }
 
-func (rt ReplayTrigger) GetFilters() []Filter {
-	return rt.Filters
+func (r Replay) GetFilters() []Filter {
+	return r.Filters
 }
 
-func (rt ReplayTrigger) GetStartDate() string {
-	return rt.StartDate
+func (r Replay) GetStartDate() string {
+	return r.StartDate
 }
 
-func (rt ReplayTrigger) GetEndDate() string {
-	return rt.EndDate
+func (r Replay) GetEndDate() string {
+	return r.EndDate
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
@@ -202,21 +202,21 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
 }
 
-func (t *ReplayTrigger) Validate(ctx context.Context) *apis.FieldError {
+func (r *Replay) Validate(ctx context.Context) *apis.FieldError {
 	var errs *apis.FieldError
 
-	if t == nil {
+	if r == nil {
 		return nil
 	}
-	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
+	errs = errs.Also(r.Target.Validate(ctx)).ViaField("target")
 
-	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
+	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, r.Filters).ViaField("filters"))
 }
 
 type Config struct {
-	Ingest         *Ingest                  `json:"ingest,omitempty"`
-	Triggers       map[string]Trigger       `json:"triggers"`
-	ReplayTriggers map[string]ReplayTrigger `json:"replayTriggers"`
+	Ingest   *Ingest            `json:"ingest,omitempty"`
+	Triggers map[string]Trigger `json:"triggers"`
+	Replays  map[string]Replay  `json:"replays"`
 }
 
 func (c *Config) Validate(ctx context.Context) *apis.FieldError {
