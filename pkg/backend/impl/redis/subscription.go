@@ -21,12 +21,24 @@ const (
 	BackendIDAttribute = "triggermeshbackendid"
 )
 
+type exceedBounds func(id string) bool
+
+func newExceedBounds(offset string) exceedBounds {
+	return func(id string) bool {
+		// Use the greater or equal here to make it
+		// exclusive on bounds. When the ID matches the
+		// one configured at the upper bound, the message
+		// wont be produced.
+		return id >= offset
+	}
+}
+
 type subscription struct {
-	instance string
-	stream   string
-	name     string
-	group    string
-	endDate  string
+	instance            string
+	stream              string
+	name                string
+	group               string
+	checkBoundsExceeded exceedBounds
 
 	trackingEnabled bool
 
@@ -138,14 +150,8 @@ func (s *subscription) start() {
 				// If an end date has been specified, compare the current message ID
 				// with the end date. If the message ID is newer than the end date,
 				// exit the loop.
-				if s.endDate != "" {
-					msgIDIsNewer, err := compareStreamIDs(msg.ID, s.endDate)
-					if err != nil {
-						s.logger.Errorw(fmt.Sprintf("could not compare the Redis message %s with the end date %s", msg.ID, s.endDate),
-							zap.Error(err))
-					}
-					exitLoop = msgIDIsNewer
-					if msgIDIsNewer {
+				if s.checkBoundsExceeded != nil {
+					if exitLoop = s.checkBoundsExceeded(msg.ID); exitLoop {
 						break
 					}
 				}

@@ -69,7 +69,8 @@ func (d *DeliveryOptions) Validate(ctx context.Context) (errs *apis.FieldError) 
 }
 
 type Target struct {
-	URL             *string          `json:"url,,omitempty"`
+	URL *string `json:"url,,omitempty"`
+	// Deprecated, use the trigger's Delivery options instead.
 	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
 }
 
@@ -140,55 +141,43 @@ type Filter struct {
 	Suffix map[string]string `json:"suffix,omitempty"`
 }
 
+// Bounds applied to the trigger that mark the initial and final item to
+// be sent from the broker.
+type Bounds struct {
+	StartID string `json:"startId"`
+	EndDID  string `json:"endId"`
+}
+
+func (b *Bounds) GetStartID() string {
+	if b == nil {
+		return ""
+	}
+
+	return b.StartID
+}
+
+func (b *Bounds) GetEndID() string {
+	if b == nil {
+		return ""
+	}
+
+	return b.EndDID
+}
+
 type Trigger struct {
-	Filters []Filter `json:"filters,omitempty"`
-	Target  Target   `json:"target"`
+	Filters         []Filter         `json:"filters,omitempty"`
+	Target          Target           `json:"target"`
+	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
+	Bounds          *Bounds          `json:"bounds,omitempty"`
 }
 
-type Replay struct {
-	Filters   []Filter `json:"filters,omitempty"`
-	Target    Target   `json:"target"`
-	StartDate string   `json:"startDate"`
-	EndDate   string   `json:"endDate"`
-}
-
-type TriggerInterface interface {
-	GetTarget() Target
-	GetFilters() []Filter
-	GetStartDate() string
-	GetEndDate() string
-}
-
-func (t Trigger) GetTarget() Target {
-	return t.Target
-}
-
-func (t Trigger) GetFilters() []Filter {
-	return t.Filters
-}
-
-func (t Trigger) GetStartDate() string {
-	return ""
-}
-
-func (t Trigger) GetEndDate() string {
-	return ""
-}
-
-func (r Replay) GetTarget() Target {
-	return r.Target
-}
-
-func (r Replay) GetFilters() []Filter {
-	return r.Filters
-}
-
-func (r Replay) GetStartDate() string {
-	return r.StartDate
-}
-
-func (r Replay) GetEndDate() string {
-	return r.EndDate
+// HACK temporary to make the Delivery options move smooth,
+// remove this once Target does not host the deliver options.
+func (t *Trigger) GetDeliveryOptions() *DeliveryOptions {
+	if t.DeliveryOptions != nil {
+		return t.DeliveryOptions
+	}
+	return t.Target.DeliveryOptions
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
@@ -197,26 +186,14 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	if t == nil {
 		return nil
 	}
-	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
-
-	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
-}
-
-func (r *Replay) Validate(ctx context.Context) *apis.FieldError {
-	var errs *apis.FieldError
-
-	if r == nil {
-		return nil
-	}
-	errs = errs.Also(r.Target.Validate(ctx)).ViaField("target")
-
-	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, r.Filters).ViaField("filters"))
+	return errs.Also(t.Target.Validate(ctx)).ViaField("target").
+		Also(t.DeliveryOptions.Validate(ctx).ViaField("deliveryOptions")).
+		Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
 }
 
 type Config struct {
 	Ingest   *Ingest            `json:"ingest,omitempty"`
 	Triggers map[string]Trigger `json:"triggers"`
-	Replays  map[string]Replay  `json:"replays"`
 }
 
 func (c *Config) Validate(ctx context.Context) *apis.FieldError {

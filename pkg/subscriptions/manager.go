@@ -21,12 +21,10 @@ import (
 
 type Subscription struct {
 	Trigger cfgbroker.Trigger
-	Replay  cfgbroker.Replay
 }
 
 type Manager struct {
 	logger *zap.SugaredLogger
-	// ceClient ceclient.Client
 
 	backend backend.Interface
 
@@ -60,17 +58,12 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			sub.unsubscribe()
 			delete(m.subscribers, name)
 		}
-		if _, ok := c.Replays[name]; !ok {
-			m.logger.Infow("Deleting subscription", zap.String("name", name))
-			sub.unsubscribe()
-			delete(m.subscribers, name)
-		}
 	}
 
 	for name, trigger := range c.Triggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			s := m.createSubscriber(name, trigger, false)
+			s := m.createSubscriber(name, trigger)
 			if s == nil {
 				continue
 			}
@@ -91,35 +84,9 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			return
 		}
 	}
-
-	for name, replay := range c.Replays {
-		s, ok := m.subscribers[name]
-		if !ok {
-			s := m.createSubscriber(name, replay, true)
-			if s == nil {
-				continue
-			}
-			m.subscribers[name] = s
-			m.logger.Infow("Subscription for replay updated", zap.String("name", name))
-			continue
-		}
-
-		if reflect.DeepEqual(s.trigger, replay) {
-			// If there are no changes to the subscription, skip.
-			continue
-		}
-
-		// Update existing subscription with new data.
-		m.logger.Infow("Updating subscription upon replay configuration", zap.String("name", name), zap.Any("replay", replay))
-		if err := s.updateTrigger(replay); err != nil {
-			m.logger.Errorw("Could not setup replay", zap.String("name", name), zap.Error(err))
-			return
-		}
-	}
-
 }
 
-func (m *Manager) createSubscriber(name string, trigger cfgbroker.TriggerInterface, replay bool) *subscriber {
+func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) *subscriber {
 	// Create CloudEvents client with reporter for Trigger.
 	ir, err := metrics.NewReporter(m.ctx, name)
 	if err != nil {
@@ -153,16 +120,9 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.TriggerInterfa
 		return nil
 	}
 
-	if replay {
-		if err := m.backend.SubscribeBounded(name, trigger.GetStartDate(), trigger.GetEndDate(), s.dispatchCloudEvent); err != nil {
-			m.logger.Errorw("Could not create subscription for replay", zap.String("trigger", name), zap.Error(err))
-			return nil
-		}
-	} else {
-		if err := m.backend.Subscribe(name, s.dispatchCloudEvent); err != nil {
-			m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
-			return nil
-		}
+	if err := m.backend.Subscribe(name, trigger.Bounds.GetStartID(), trigger.Bounds.GetEndID(), s.dispatchCloudEvent); err != nil {
+		m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
+		return nil
 	}
 
 	return s
