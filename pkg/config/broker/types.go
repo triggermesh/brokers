@@ -69,7 +69,8 @@ func (d *DeliveryOptions) Validate(ctx context.Context) (errs *apis.FieldError) 
 }
 
 type Target struct {
-	URL             *string          `json:"url,,omitempty"`
+	URL *string `json:"url,,omitempty"`
+	// Deprecated, use the trigger's Delivery options instead.
 	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
 }
 
@@ -140,9 +141,43 @@ type Filter struct {
 	Suffix map[string]string `json:"suffix,omitempty"`
 }
 
+// Bounds applied to the trigger that mark the initial and final item to
+// be sent from the broker.
+type Bounds struct {
+	StartID string `json:"startId"`
+	EndDID  string `json:"endId"`
+}
+
+func (b *Bounds) GetStartID() string {
+	if b == nil {
+		return ""
+	}
+
+	return b.StartID
+}
+
+func (b *Bounds) GetEndID() string {
+	if b == nil {
+		return ""
+	}
+
+	return b.EndDID
+}
+
 type Trigger struct {
-	Filters []Filter `json:"filters,omitempty"`
-	Target  Target   `json:"target"`
+	Filters         []Filter         `json:"filters,omitempty"`
+	Target          Target           `json:"target"`
+	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
+	Bounds          *Bounds          `json:"bounds,omitempty"`
+}
+
+// HACK temporary to make the Delivery options move smooth,
+// remove this once Target does not host the deliver options.
+func (t *Trigger) GetDeliveryOptions() *DeliveryOptions {
+	if t.DeliveryOptions != nil {
+		return t.DeliveryOptions
+	}
+	return t.Target.DeliveryOptions
 }
 
 func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
@@ -151,9 +186,9 @@ func (t *Trigger) Validate(ctx context.Context) *apis.FieldError {
 	if t == nil {
 		return nil
 	}
-	errs = errs.Also(t.Target.Validate(ctx)).ViaField("target")
-
-	return errs.Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
+	return errs.Also(t.Target.Validate(ctx)).ViaField("target").
+		Also(t.DeliveryOptions.Validate(ctx).ViaField("deliveryOptions")).
+		Also(ValidateSubscriptionAPIFiltersList(ctx, t.Filters).ViaField("filters"))
 }
 
 type Config struct {

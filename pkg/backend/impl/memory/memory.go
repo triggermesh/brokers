@@ -59,7 +59,11 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *memory) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
+func (s *memory) Subscribe(name, startID, endID string, ccb backend.ConsumerDispatcher) error {
+	if startID != "" || endID != "" {
+		return errors.New("not supported")
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.ccbs[name] = ccb

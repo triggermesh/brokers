@@ -52,28 +52,31 @@ func (s *subscriber) updateTrigger(trigger cfgbroker.Trigger) error {
 	}
 	ctx := cloudevents.ContextWithTarget(s.parentCtx, url)
 
-	if trigger.Target.DeliveryOptions != nil &&
-		trigger.Target.DeliveryOptions.Retry != nil &&
-		*trigger.Target.DeliveryOptions.Retry >= 1 &&
-		trigger.Target.DeliveryOptions.BackoffPolicy != nil {
+	// HACK temporary to make the Delivery options move smooth,
+	// remove the method and access the field when the structure is
+	// completely migrated to having the delivery options at the root.
+	if do := trigger.GetDeliveryOptions(); do != nil &&
+		do.Retry != nil &&
+		*do.Retry >= 1 &&
+		do.BackoffPolicy != nil {
 
-		delay, err := period.Parse(*trigger.Target.DeliveryOptions.BackoffDelay)
+		delay, err := period.Parse(*do.BackoffDelay)
 		if err != nil {
 			return fmt.Errorf("could not apply trigger %q configuration due to backoff delay parsing: %w", s.name, err)
 		}
 
-		switch *trigger.Target.DeliveryOptions.BackoffPolicy {
+		switch *do.BackoffPolicy {
 		case cfgbroker.BackoffPolicyLinear:
 			ctx = cloudevents.ContextWithRetriesLinearBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*do.Retry))
 
 		case cfgbroker.BackoffPolicyExponential:
 			ctx = cloudevents.ContextWithRetriesExponentialBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*do.Retry))
 
 		default:
 			ctx = cloudevents.ContextWithRetriesConstantBackoff(
-				ctx, delay.DurationApprox(), int(*trigger.Target.DeliveryOptions.Retry))
+				ctx, delay.DurationApprox(), int(*do.Retry))
 		}
 	}
 
@@ -96,27 +99,24 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 		return
 	}
 
-	t := s.trigger.Target
-	s.dispatchCloudEventToTarget(&t, event)
-}
-
-func (s *subscriber) dispatchCloudEventToTarget(target *cfgbroker.Target, event *cloudevents.Event) {
-	// Only try to send if target URL has been configured.
+	// Only try to send if target URL has been configured. When not
+	// configured try to send to the dead letter sink.
 	url := cloudevents.TargetFromContext(s.ctx)
 	if url != nil && s.send(s.ctx, event) {
 		return
 	}
 
-	if target.DeliveryOptions != nil && target.DeliveryOptions.DeadLetterURL != nil &&
-		*target.DeliveryOptions.DeadLetterURL != "" {
-		dlsCtx := cloudevents.ContextWithTarget(s.parentCtx, *target.DeliveryOptions.DeadLetterURL)
+	// If the event could not be sent (including retries), check for DLS
+	// and send if is it configured.
+	if do := s.trigger.GetDeliveryOptions(); do != nil && do.DeadLetterURL != nil && *do.DeadLetterURL != "" {
+		dlsCtx := cloudevents.ContextWithTarget(s.parentCtx, *do.DeadLetterURL)
 		if s.send(dlsCtx, event) {
 			return
 		}
 	}
 
-	// Attribute "lost": true is set help log aggregators identify
-	// lost events by querying.
+	// If the event could not be sent either to the target or the DLS just write a log entry.
+	// Set the attribute `lost: true` to help log aggregators identify lost events by querying.
 	msg := "Event was lost"
 	if url != nil {
 		msg += " while sending to " + url.String()

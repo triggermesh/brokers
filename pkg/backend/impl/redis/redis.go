@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	// Starting point for the consumer group.
-	groupStartID = "$"
+	// Default starting point for the consumer group.
+	defaultGroupStartID = "$"
 
 	// Redis key at the message that contains the CloudEvent.
 	ceKey = "ce"
@@ -190,7 +190,9 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
+// SubscribeBounded is a variant of the Subscribe function that supports bounded subscriptions.
+// It adds the option of using a startId and endId for the replay feature.
+func (s *redis) Subscribe(name, startId, endId string, ccb backend.ConsumerDispatcher) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -203,9 +205,18 @@ func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 		return fmt.Errorf("subscription for %q alredy exists", name)
 	}
 
+	if startId == "" {
+		startId = defaultGroupStartID
+	}
+
+	var exceedBoundCheck exceedBounds
+	if endId != "" {
+		exceedBoundCheck = newExceedBounds(endId)
+	}
+
 	// Create the consumer group for this subscription.
 	group := s.args.Group + "." + name
-	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, groupStartID)
+	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, startId)
 	_, err := res.Result()
 	if err != nil {
 		// Ignore errors when the group already exists.
@@ -221,10 +232,11 @@ func (s *redis) Subscribe(name string, ccb backend.ConsumerDispatcher) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	subs := subscription{
-		instance: s.args.Instance,
-		stream:   s.args.Stream,
-		name:     name,
-		group:    group,
+		instance:            s.args.Instance,
+		stream:              s.args.Stream,
+		name:                name,
+		group:               group,
+		checkBoundsExceeded: exceedBoundCheck,
 
 		trackingEnabled: s.args.TrackingIDEnabled,
 

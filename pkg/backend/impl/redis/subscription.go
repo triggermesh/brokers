@@ -21,11 +21,24 @@ const (
 	BackendIDAttribute = "triggermeshbackendid"
 )
 
+type exceedBounds func(id string) bool
+
+func newExceedBounds(offset string) exceedBounds {
+	return func(id string) bool {
+		// Use the greater or equal here to make it
+		// exclusive on bounds. When the ID matches the
+		// one configured at the upper bound, the message
+		// wont be produced.
+		return id >= offset
+	}
+}
+
 type subscription struct {
-	instance string
-	stream   string
-	name     string
-	group    string
+	instance            string
+	stream              string
+	name                string
+	group               string
+	checkBoundsExceeded exceedBounds
 
 	trackingEnabled bool
 
@@ -66,7 +79,7 @@ func (s *subscription) start() {
 	go func() {
 		for {
 			// Check at the begining of each iteration if the exit loop flag has
-			// been signaled due to done context.
+			// been signaled due to done context or because the endDate has been reached.
 			if exitLoop {
 				break
 			}
@@ -132,6 +145,15 @@ func (s *subscription) start() {
 					}
 
 					continue
+				}
+
+				// If an end date has been specified, compare the current message ID
+				// with the end date. If the message ID is newer than the end date,
+				// exit the loop.
+				if s.checkBoundsExceeded != nil {
+					if exitLoop = s.checkBoundsExceeded(msg.ID); exitLoop {
+						break
+					}
 				}
 
 				if s.trackingEnabled {

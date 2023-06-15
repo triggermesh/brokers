@@ -26,12 +26,14 @@ type EventProducer interface {
 	Produce(context.Context, *cloudevents.Event) error
 }
 
+type SubscribeOption func(Subscribable)
+
 type Subscribable interface {
 	// Subscribe is a method that sets up a reader that will retrieve
 	// events from the backend and pass them to the consumer dispatcher.
 	// When the consumer dispatcher returns, the message is marked as
 	// processed and won't be delivered anymore.
-	Subscribe(name string, ccb ConsumerDispatcher) error
+	Subscribe(name, startID, endID string, ccb ConsumerDispatcher) error
 
 	// Unsubscribe is a method that removes a subscription referencing
 	// it by name, returning when all pending (already read) messages
