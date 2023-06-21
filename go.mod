@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.0.4
 	github.com/rickb777/date v1.20.1
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sync v0.3.0
