@@ -64,7 +64,7 @@ func TestGlobalsValidation(t *testing.T) {
 				BrokerConfigPath:    brokerConfigPath,
 				ConfigPollingPeriod: "1312",
 			},
-			expectedErr:          "Polling frequency is not an ISO8601 duration",
+			expectedErr:          "polling period is not an ISO8601 duration",
 			expectedConfigMethod: ConfigMethodUnknown,
 		},
 		"mixed watcher and kubernetes": {
