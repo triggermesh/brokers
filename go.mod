@@ -8,7 +8,7 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/redis/go-redis/v9 v9.0.4
+	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rickb777/date v1.20.1
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
