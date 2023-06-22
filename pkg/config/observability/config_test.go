@@ -29,6 +29,7 @@ zap-logger-config: |
 					Level:       info,
 					Development: false,
 				},
+				MetricsConfig: &MetricsConfig{},
 			},
 		},
 		"full logger config": {
@@ -59,6 +60,7 @@ zap-logger-config: |
 					Level:       info,
 					Development: true,
 				},
+				MetricsConfig: &MetricsConfig{},
 			},
 		},
 		"metrics config": {
@@ -91,6 +93,7 @@ metrics.prometheus-port: 9092
 			require.Equal(t, err, nil)
 
 			t.Logf("Config: %+v", c)
+			t.Logf("Config: %+v", c.MetricsConfig)
 			t.Logf("Config: %+v", c.ZapLoggerConfig)
 
 			// Compare logger configuration elements.
