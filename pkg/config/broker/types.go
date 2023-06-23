@@ -144,24 +144,24 @@ type Filter struct {
 // Bounds applied to the trigger that mark the initial and final item to
 // be sent from the broker.
 type Bounds struct {
-	StartID *string `json:"startId"`
-	EndDID  *string `json:"endId"`
+	Start *string `json:"start"`
+	EndD  *string `json:"end"`
 }
 
-func (b *Bounds) GetStartID() string {
-	if b == nil || b.StartID == nil {
+func (b *Bounds) GetStart() string {
+	if b == nil || b.Start == nil {
 		return ""
 	}
 
-	return *b.StartID
+	return *b.Start
 }
 
-func (b *Bounds) GetEndID() string {
-	if b == nil || b.EndDID == nil {
+func (b *Bounds) GetEnd() string {
+	if b == nil || b.EndD == nil {
 		return ""
 	}
 
-	return *b.EndDID
+	return *b.EndD
 }
 
 type TriggerBounds struct {

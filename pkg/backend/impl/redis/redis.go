@@ -329,7 +329,7 @@ func boundsResolver(bounds *broker.TriggerBounds) (startID, endID string, e erro
 	}
 
 	// Process date bounds.
-	if start := bounds.ByDate.GetStartID(); start != "" {
+	if start := bounds.ByDate.GetStart(); start != "" {
 		st, err := time.Parse(time.RFC3339Nano, start)
 		if err != nil {
 			e = fmt.Errorf("parsing bounds start date: %w", err)
@@ -337,7 +337,7 @@ func boundsResolver(bounds *broker.TriggerBounds) (startID, endID string, e erro
 		}
 		startID = strconv.FormatInt(st.UnixMilli(), 10)
 	}
-	if end := bounds.ByDate.GetEndID(); end != "" {
+	if end := bounds.ByDate.GetEnd(); end != "" {
 		en, err := time.Parse(time.RFC3339, end)
 		if err != nil {
 			e = fmt.Errorf("parsing bounds end date: %w", err)
@@ -347,10 +347,10 @@ func boundsResolver(bounds *broker.TriggerBounds) (startID, endID string, e erro
 	}
 
 	// Process ID bounds.
-	if start := bounds.ByID.GetStartID(); start != "" {
+	if start := bounds.ByID.GetStart(); start != "" {
 		startID = start
 	}
-	if end := bounds.ByID.GetEndID(); end != "" {
+	if end := bounds.ByID.GetEnd(); end != "" {
 		endID = end
 	}
 
