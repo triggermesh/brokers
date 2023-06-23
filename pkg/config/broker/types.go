@@ -145,7 +145,7 @@ type Filter struct {
 // be sent from the broker.
 type Bounds struct {
 	Start *string `json:"start"`
-	EndD  *string `json:"end"`
+	End   *string `json:"end"`
 }
 
 func (b *Bounds) GetStart() string {
@@ -157,11 +157,11 @@ func (b *Bounds) GetStart() string {
 }
 
 func (b *Bounds) GetEnd() string {
-	if b == nil || b.EndD == nil {
+	if b == nil || b.End == nil {
 		return ""
 	}
 
-	return *b.EndD
+	return *b.End
 }
 
 type TriggerBounds struct {

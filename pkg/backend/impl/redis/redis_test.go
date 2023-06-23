@@ -48,7 +48,7 @@ func TestBoundsResolver(t *testing.T) {
 			bounds: &broker.TriggerBounds{
 				ByID: &broker.Bounds{
 					Start: &tStartID,
-					EndD:  &tEndID,
+					End:   &tEndID,
 				},
 			},
 			expectedStartID: tStartID,
@@ -58,7 +58,7 @@ func TestBoundsResolver(t *testing.T) {
 			bounds: &broker.TriggerBounds{
 				ByDate: &broker.Bounds{
 					Start: &tStartDateSeconds,
-					EndD:  &tEndDateSeconds,
+					End:   &tEndDateSeconds,
 				},
 			},
 			expectedStartID: tStartDateSecondsToId,
@@ -68,7 +68,7 @@ func TestBoundsResolver(t *testing.T) {
 			bounds: &broker.TriggerBounds{
 				ByDate: &broker.Bounds{
 					Start: &tStartDateMillis,
-					EndD:  &tEndDateMillis,
+					End:   &tEndDateMillis,
 				},
 			},
 			expectedStartID: tStartDateMillisToId,
