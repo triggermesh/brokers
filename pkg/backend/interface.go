@@ -7,6 +7,7 @@ import (
 	"context"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 type Info struct {
@@ -33,7 +34,7 @@ type Subscribable interface {
 	// events from the backend and pass them to the consumer dispatcher.
 	// When the consumer dispatcher returns, the message is marked as
 	// processed and won't be delivered anymore.
-	Subscribe(name, startID, endID string, ccb ConsumerDispatcher) error
+	Subscribe(name string, bounds *broker.TriggerBounds, ccb ConsumerDispatcher) error
 
 	// Unsubscribe is a method that removes a subscription referencing
 	// it by name, returning when all pending (already read) messages

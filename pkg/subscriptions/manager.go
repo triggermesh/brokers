@@ -120,7 +120,7 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) *subs
 		return nil
 	}
 
-	if err := m.backend.Subscribe(name, trigger.Bounds.GetStartID(), trigger.Bounds.GetEndID(), s.dispatchCloudEvent); err != nil {
+	if err := m.backend.Subscribe(name, trigger.Bounds, s.dispatchCloudEvent); err != nil {
 		m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
 		return nil
 	}

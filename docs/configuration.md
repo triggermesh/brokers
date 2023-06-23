@@ -39,7 +39,7 @@ A bounded trigger can be created to replay events. Only Redis broker is capable 
 
 ## Broker Configuration Examples
 
-### Example 1
+### Simple 1
 
 - Only allow CloudEvents type `example.type`
 - Send to `http://localhost:9000`
@@ -59,14 +59,37 @@ triggers:
       backoffPolicy: linear
 ```
 
-## Example Replay
+## Example Replay By ID
 
 ```yaml
 triggers:
   replay1:
     bounds:
-      startId: 1686851639344-0
-      endId: 1686851697104-0
+      byId:
+        start: 1686851639344-0
+        end: 1686851697104-0
+    filters:
+    - exact:
+        type: example.type
+    target:
+      url: http://localhost:9099
+    deliveryOptions:
+      retry: 1
+      backoffDelay: PT5S
+      backoffPolicy: linear
+```
+
+## Example Replay By Date
+
+Dates must be [RFC3339](https://datatracker.ietf.org/doc/html/rfc3339) formatted up to nanoseconds.
+
+```yaml
+triggers:
+  replay1:
+    bounds:
+      byDate:
+        start: 2020-04-12T02:16:56Z
+        end: 2023-06-13T12:03:36.106+00:00
     filters:
     - exact:
         type: example.type
