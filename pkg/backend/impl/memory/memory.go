@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/triggermesh/brokers/pkg/backend"
+	"github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 func New(args *MemoryArgs, logger *zap.SugaredLogger) backend.Interface {
@@ -59,9 +60,9 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *memory) Subscribe(name, startID, endID string, ccb backend.ConsumerDispatcher) error {
-	if startID != "" || endID != "" {
-		return errors.New("not supported")
+func (s *memory) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher) error {
+	if bounds != nil {
+		return errors.New("bounds not supported for memory broker")
 	}
 
 	s.m.Lock()

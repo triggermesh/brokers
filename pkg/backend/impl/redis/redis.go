@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/triggermesh/brokers/pkg/backend"
+	"github.com/triggermesh/brokers/pkg/config/broker"
 )
 
 const (
@@ -192,7 +194,7 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 
 // SubscribeBounded is a variant of the Subscribe function that supports bounded subscriptions.
 // It adds the option of using a startId and endId for the replay feature.
-func (s *redis) Subscribe(name, startId, endId string, ccb backend.ConsumerDispatcher) error {
+func (s *redis) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -205,19 +207,20 @@ func (s *redis) Subscribe(name, startId, endId string, ccb backend.ConsumerDispa
 		return fmt.Errorf("subscription for %q alredy exists", name)
 	}
 
-	if startId == "" {
-		startId = defaultGroupStartID
+	startID, endID, err := boundsResolver(bounds)
+	if err != nil {
+		return fmt.Errorf("subscription bounds could not be resolved: %w", err)
 	}
 
 	var exceedBoundCheck exceedBounds
-	if endId != "" {
-		exceedBoundCheck = newExceedBounds(endId)
+	if endID != "" {
+		exceedBoundCheck = newExceedBounds(endID)
 	}
 
 	// Create the consumer group for this subscription.
 	group := s.args.Group + "." + name
-	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, startId)
-	_, err := res.Result()
+	res := s.client.XGroupCreateMkStream(s.ctx, s.args.Stream, group, startID)
+	_, err = res.Result()
 	if err != nil {
 		// Ignore errors when the group already exists.
 		if !strings.HasPrefix(err.Error(), "BUSYGROUP") {
@@ -316,4 +319,40 @@ func (s *redis) Probe(ctx context.Context) error {
 
 	// Add some context since Redis client sometimes is not clear about what failed.
 	return fmt.Errorf("failed probing Redis, using PING: %w", err)
+}
+
+func boundsResolver(bounds *broker.TriggerBounds) (startID, endID string, e error) {
+	startID = defaultGroupStartID
+
+	if bounds == nil {
+		return
+	}
+
+	// Process date bounds.
+	if start := bounds.ByDate.GetStartID(); start != "" {
+		st, err := time.Parse(time.RFC3339Nano, start)
+		if err != nil {
+			e = fmt.Errorf("parsing bounds start date: %w", err)
+			return
+		}
+		startID = strconv.FormatInt(st.UnixMilli(), 10)
+	}
+	if end := bounds.ByDate.GetEndID(); end != "" {
+		en, err := time.Parse(time.RFC3339, end)
+		if err != nil {
+			e = fmt.Errorf("parsing bounds end date: %w", err)
+			return
+		}
+		endID = strconv.FormatInt(en.UnixMilli(), 10)
+	}
+
+	// Process ID bounds.
+	if start := bounds.ByID.GetStartID(); start != "" {
+		startID = start
+	}
+	if end := bounds.ByID.GetEndID(); end != "" {
+		endID = end
+	}
+
+	return
 }

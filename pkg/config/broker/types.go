@@ -144,31 +144,36 @@ type Filter struct {
 // Bounds applied to the trigger that mark the initial and final item to
 // be sent from the broker.
 type Bounds struct {
-	StartID string `json:"startId"`
-	EndDID  string `json:"endId"`
+	StartID *string `json:"startId"`
+	EndDID  *string `json:"endId"`
 }
 
 func (b *Bounds) GetStartID() string {
-	if b == nil {
+	if b == nil || b.StartID == nil {
 		return ""
 	}
 
-	return b.StartID
+	return *b.StartID
 }
 
 func (b *Bounds) GetEndID() string {
-	if b == nil {
+	if b == nil || b.EndDID == nil {
 		return ""
 	}
 
-	return b.EndDID
+	return *b.EndDID
+}
+
+type TriggerBounds struct {
+	ByID   *Bounds `json:"byId,omitempty"`
+	ByDate *Bounds `json:"byDate,omitempty"`
 }
 
 type Trigger struct {
 	Filters         []Filter         `json:"filters,omitempty"`
 	Target          Target           `json:"target"`
 	DeliveryOptions *DeliveryOptions `json:"deliveryOptions,omitempty"`
-	Bounds          *Bounds          `json:"bounds,omitempty"`
+	Bounds          *TriggerBounds   `json:"bounds,omitempty"`
 }
 
 // HACK temporary to make the Delivery options move smooth,
