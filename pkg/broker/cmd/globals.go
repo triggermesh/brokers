@@ -103,13 +103,16 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Broker configuration path, Kubernetes Secret, or inline configuration must be informed.")
 	}
 
+	if s.KubernetesNamespace == "" &&
+		(s.KubernetesStatusConfigmap != "" ||
+			s.KubernetesBrokerConfigSecretName != "" ||
+			s.KubernetesBrokerConfigSecretKey != "") {
+		msg = append(msg, "Kubernetes namespace must be informed.")
+	}
+
 	switch {
 	case s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "":
 		s.ConfigMethod = ConfigMethodKubernetesSecretMapWatcher
-
-		if s.KubernetesNamespace == "" {
-			msg = append(msg, "Kubernetes namespace must be informed.")
-		}
 
 		if s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "" {
 			msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
@@ -277,6 +280,32 @@ func (s *Globals) Initialize() error {
 	s.UpdateMetricsOptions(cfg)
 
 	// TODO Setup status management
+	switch {
+	case s.KubernetesStatusConfigmap != "":
+		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return err
+		}
+
+		cm := &corev1.ConfigMap{}
+		var lastErr error
+
+		if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+			lastErr = kc.Get(s.Context, client.ObjectKey{
+				Namespace: s.KubernetesNamespace,
+				Name:      s.KubernetesStatusConfigmap,
+			}, cm)
+
+			return lastErr == nil || apierrors.IsNotFound(lastErr), nil
+		}); err != nil {
+			log.Printf("Could not retrieve status ConfigMap %q: %v",
+				s.KubernetesStatusConfigmap, err)
+		}
+
+	default:
+		// No status management by default
+
+	}
 
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 	"github.com/triggermesh/brokers/pkg/ingest/metrics"
+	"github.com/triggermesh/brokers/pkg/status"
 )
 
 type CloudEventHandler func(context.Context, *cloudevents.Event) error
@@ -29,8 +30,9 @@ type Instance struct {
 	ceHandler    CloudEventHandler
 	probeHandler ProbeHandler
 
-	reporter metrics.Reporter
-	logger   *zap.SugaredLogger
+	statusManager status.Manager
+	reporter      metrics.Reporter
+	logger        *zap.SugaredLogger
 }
 
 type InstanceOption func(*Instance)
@@ -52,6 +54,12 @@ func NewInstance(reporter metrics.Reporter, logger *zap.SugaredLogger, opts ...I
 func InstanceWithPort(port int) InstanceOption {
 	return func(i *Instance) {
 		i.port = port
+	}
+}
+
+func InstanceWithStatusManager(sm status.Manager) InstanceOption {
+	return func(i *Instance) {
+		i.statusManager = sm
 	}
 }
 
@@ -94,7 +102,23 @@ func (i *Instance) Start(ctx context.Context) error {
 	}
 
 	i.logger.Infof("Listening on %d", i.port)
-	if err := c.StartReceiver(ctx, i.cloudEventsHandler); err != nil {
+	var handler interface{}
+
+	if i.statusManager != nil {
+		// Notify and defer status manager
+		i.statusManager.UpdateIngestStatus(&status.IngestStatus{
+			Status: "Running",
+		})
+		defer i.statusManager.UpdateIngestStatus(&status.IngestStatus{
+			Status: "Closed",
+		})
+
+		handler = i.cloudEventsStatusManagerHandler
+	} else {
+		handler = i.cloudEventsHandler
+	}
+
+	if err := c.StartReceiver(ctx, handler); err != nil {
 		return fmt.Errorf("unable to start HTTP server: %w", err)
 	}
 
@@ -111,6 +135,18 @@ func (i *Instance) RegisterCloudEventHandler(h CloudEventHandler) {
 
 func (i *Instance) RegisterProbeHandler(h ProbeHandler) {
 	i.probeHandler = h
+}
+
+func (i *Instance) cloudEventsStatusManagerHandler(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, protocol.Result) {
+	e, p := i.cloudEventsHandler(ctx, event)
+
+	t := time.Now()
+	i.statusManager.UpdateIngestStatus(&status.IngestStatus{
+		Status:       "Started",
+		LastIngested: &t,
+	})
+
+	return e, p
 }
 
 func (i *Instance) cloudEventsHandler(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, protocol.Result) {
