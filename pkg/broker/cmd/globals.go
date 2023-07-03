@@ -61,6 +61,7 @@ type Globals struct {
 	KubernetesBrokerConfigSecretName     string `help:"Secret object name that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_NAME"`
 	KubernetesBrokerConfigSecretKey      string `help:"Secret object key that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_KEY"`
 	KubernetesObservabilityConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME"`
+	KubernetesStatusConfigmap            string `help:"ConfigMap object name where the broker should write its status." env:"KUBERNETES_STATUS_CONFIGMAP_NAME"`
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
@@ -274,6 +275,8 @@ func (s *Globals) Initialize() error {
 	knmetrics.MemStatsOrDie(s.Context)
 	s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName)
 	s.UpdateMetricsOptions(cfg)
+
+	// TODO Setup status management
 
 	return nil
 }
