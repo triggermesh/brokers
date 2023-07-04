@@ -16,6 +16,7 @@ import (
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/status"
 	"github.com/triggermesh/brokers/pkg/subscriptions/metrics"
 )
 
@@ -26,7 +27,8 @@ type Subscription struct {
 type Manager struct {
 	logger *zap.SugaredLogger
 
-	backend backend.Interface
+	backend       backend.Interface
+	statusManager status.Manager
 
 	// Subscribers map indexed by name
 	subscribers map[string]*subscriber
@@ -35,15 +37,16 @@ type Manager struct {
 	m   sync.RWMutex
 }
 
-func New(inctx context.Context, logger *zap.SugaredLogger, be backend.Interface) (*Manager, error) {
+func New(inctx context.Context, logger *zap.SugaredLogger, be backend.Interface, statusManager status.Manager) (*Manager, error) {
 	// Needed for Knative filters
 	ctx := logging.WithLogger(inctx, logger)
 
 	return &Manager{
-		backend:     be,
-		subscribers: make(map[string]*subscriber),
-		logger:      logger,
-		ctx:         ctx,
+		backend:       be,
+		subscribers:   make(map[string]*subscriber),
+		logger:        logger,
+		statusManager: statusManager,
+		ctx:           ctx,
 	}, nil
 }
 
@@ -107,11 +110,12 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) *subs
 	}
 
 	s := &subscriber{
-		name:      name,
-		backend:   m.backend,
-		ceClient:  ceClient,
-		parentCtx: m.ctx,
-		logger:    m.logger,
+		name:          name,
+		backend:       m.backend,
+		statusManager: m.statusManager,
+		ceClient:      ceClient,
+		parentCtx:     m.ctx,
+		logger:        m.logger,
 	}
 
 	m.logger.Infow("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))

@@ -18,14 +18,16 @@ import (
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/status"
 )
 
 type subscriber struct {
 	trigger cfgbroker.Trigger
 
-	name     string
-	backend  backend.Interface
-	ceClient cloudevents.Client
+	name          string
+	backend       backend.Interface
+	statusManager status.Manager
+	ceClient      cloudevents.Client
 
 	// We need to have both the parent context used to build the subscriber and the
 	// local context used to send CloudEvents that contains the target and delivery
