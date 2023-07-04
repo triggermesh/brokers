@@ -61,14 +61,20 @@ type Globals struct {
 	KubernetesBrokerConfigSecretName     string `help:"Secret object name that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_NAME"`
 	KubernetesBrokerConfigSecretKey      string `help:"Secret object key that contains the broker configuration." env:"KUBERNETES_BROKER_CONFIG_SECRET_KEY"`
 	KubernetesObservabilityConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME"`
+	KubernetesStatusConfigmapName        string `help:"ConfigMap object name where the broker instance should write its status." env:"KUBERNETES_STATUS_CONFIGMAP_NAME"`
+	KubernetesStatusConfigmapKey         string `help:"ConfigMap object key where the broker should write its status." env:"KUBERNETES_STATUS_CONFIGMAP_KEY" default:"status"`
+	KubernetesStatusResyncPeriod         string `help:"Period for running pending status write checks using ISO8601." env:"KUBERNETES_STATUS_RESYNC_PERIOD"  default:"PT10S"`
+	KubernetesStatusCacheExpiration      string `help:"Time to wait without forcing a status write to the ConfigMap using ISO8601." env:"KUBERNETES_STATUS_CACHE_EXPIRATION"  default:"PT1M"`
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
-	Context       context.Context    `kong:"-"`
-	Logger        *zap.SugaredLogger `kong:"-"`
-	LogLevel      zap.AtomicLevel    `kong:"-"`
-	PollingPeriod time.Duration      `kong:"-"`
-	ConfigMethod  ConfigMethod       `kong:"-"`
+	Context               context.Context    `kong:"-"`
+	Logger                *zap.SugaredLogger `kong:"-"`
+	LogLevel              zap.AtomicLevel    `kong:"-"`
+	PollingPeriod         time.Duration      `kong:"-"`
+	ConfigMethod          ConfigMethod       `kong:"-"`
+	StatusResyncPeriod    time.Duration      `kong:"-"`
+	StatusCacheExpiration time.Duration      `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -102,13 +108,16 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Broker configuration path, Kubernetes Secret, or inline configuration must be informed.")
 	}
 
+	if s.KubernetesNamespace == "" &&
+		(s.KubernetesStatusConfigmapName != "" ||
+			s.KubernetesBrokerConfigSecretName != "" ||
+			s.KubernetesBrokerConfigSecretKey != "") {
+		msg = append(msg, "Kubernetes namespace must be informed.")
+	}
+
 	switch {
 	case s.KubernetesBrokerConfigSecretName != "" || s.KubernetesBrokerConfigSecretKey != "":
 		s.ConfigMethod = ConfigMethodKubernetesSecretMapWatcher
-
-		if s.KubernetesNamespace == "" {
-			msg = append(msg, "Kubernetes namespace must be informed.")
-		}
 
 		if s.KubernetesBrokerConfigSecretName == "" || s.KubernetesBrokerConfigSecretKey == "" {
 			msg = append(msg, "Broker configuration for Kubernetes must inform both secret name and key.")
@@ -165,6 +174,23 @@ func (s *Globals) Validate() error {
 
 	default:
 		msg = append(msg, "Either Kubernetes Secret or local file configuration must be informed.")
+	}
+
+	// If the status is enabled, parse durations for resync and expired cache.
+	if s.KubernetesStatusConfigmapName != "" {
+		p, err := period.Parse(s.KubernetesStatusResyncPeriod)
+		if err != nil {
+			msg = append(msg, fmt.Sprintf("Kubernetes status resync period is not an ISO8601 duration: %v", err))
+		} else {
+			s.StatusResyncPeriod = p.DurationApprox()
+		}
+
+		p, err = period.Parse(s.KubernetesStatusCacheExpiration)
+		if err != nil {
+			msg = append(msg, fmt.Sprintf("Kubernetes status cache expiration is not an ISO8601 duration: %v", err))
+		} else {
+			s.StatusCacheExpiration = p.DurationApprox()
+		}
 	}
 
 	if len(msg) != 0 {
@@ -242,7 +268,7 @@ func (s *Globals) Initialize() error {
 		}
 
 	default:
-		log.Print("Applying default configuration")
+		log.Print("Applying default observability configuration")
 		defaultConfigApplied = true
 	}
 
@@ -274,6 +300,33 @@ func (s *Globals) Initialize() error {
 	knmetrics.MemStatsOrDie(s.Context)
 	s.Context = metrics.InitializeReportingContext(s.Context, s.BrokerName)
 	s.UpdateMetricsOptions(cfg)
+
+	switch {
+	case s.KubernetesStatusConfigmapName != "":
+		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return err
+		}
+
+		var lastErr error
+
+		if err := wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+			cm := &corev1.ConfigMap{}
+			lastErr = kc.Get(s.Context, client.ObjectKey{
+				Namespace: s.KubernetesNamespace,
+				Name:      s.KubernetesStatusConfigmapName,
+			}, cm)
+
+			return lastErr == nil || apierrors.IsNotFound(lastErr), nil
+		}); err != nil {
+			log.Printf("Could not retrieve status ConfigMap %q: %v",
+				s.KubernetesStatusConfigmapName, err)
+		}
+
+	default:
+		// No status management by default
+
+	}
 
 	return nil
 }

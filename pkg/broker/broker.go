@@ -13,11 +13,14 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/broker/cmd"
 	"github.com/triggermesh/brokers/pkg/common/fs"
 	"github.com/triggermesh/brokers/pkg/common/kubernetes/controller"
+	kstatus "github.com/triggermesh/brokers/pkg/common/kubernetes/status"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
 	cfgbpoller "github.com/triggermesh/brokers/pkg/config/broker/poller"
 	cfgbwatcher "github.com/triggermesh/brokers/pkg/config/broker/watcher"
@@ -25,6 +28,7 @@ import (
 	cfgowatcher "github.com/triggermesh/brokers/pkg/config/observability/watcher"
 	"github.com/triggermesh/brokers/pkg/ingest"
 	"github.com/triggermesh/brokers/pkg/ingest/metrics"
+	"github.com/triggermesh/brokers/pkg/status"
 	"github.com/triggermesh/brokers/pkg/subscriptions"
 )
 
@@ -68,8 +72,35 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 		return nil, err
 	}
 
+	var statusManager status.Manager
+
+	if globals.KubernetesStatusConfigmapName != "" {
+		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
+		if err != nil {
+			return nil, err
+		}
+
+		statusManager = kstatus.NewKubernetesManager(globals.Context,
+			// ConfigMap identification
+			globals.KubernetesStatusConfigmapName,
+			globals.KubernetesNamespace,
+			globals.KubernetesStatusConfigmapKey,
+
+			// Broker instance
+			globals.BrokerName,
+
+			/* Cached status expiry. When reached a re-write of the ConfigMap will be forced */
+			globals.StatusCacheExpiration,
+			/* Resync period */
+			globals.StatusResyncPeriod,
+
+			kc,
+			globals.Logger.Named("status"))
+	}
+
 	i := ingest.NewInstance(ir, globals.Logger.Named("ingest"),
 		ingest.InstanceWithPort(globals.Port),
+		ingest.InstanceWithStatusManager(statusManager),
 	)
 
 	globals.Logger.Debug("Creating broker instance")
