@@ -18,30 +18,51 @@ import (
 const ConfigMapKey = "status"
 
 type kubernetesManager struct {
+	// Instance must be unique for every instance of the broker, it will
+	// be used as the root element for the status reporting structure.
 	instance string
-	key      client.ObjectKey
-	cmkey    string
-	client   client.Client
-	cached   *status.Status
 
-	// lastStatusWrite will be set to the last time that the ConfigMap was writen.
-	// staleCache is the configured duration that this broker instance is forced to
-	// re-write the configmap, even if no changes are detected.
-	staleCache      time.Duration
+	// ConfigMap object and key identification
+	key   client.ObjectKey
+	cmkey string
+
+	// Cached structure for the status that avoids trying
+	// rewrites when there are no status changes.
+	//
+	// The cached structure will be considered stale after some
+	// configurable duration.
+	//
+	// lastStatusWrite checkpoints the last time the ConfigMap was written, and will be
+	// combined with cacheExpiration to calculate cache expiration
+	cached          *status.Status
+	cacheExpiration time.Duration
 	lastStatusWrite time.Time
 
-	// pendingWrite is a flag set when a ConfigMap write fails and we are due to
-	// try again later.
-	pendingWrite bool
-
-	chReconcile  chan struct{}
+	// The kubernetes status manager will run reconciling cycles according to the
+	// resyncPeriod duration. If the status cache has expired, the ConfigMap will be
+	// re-written by this reconciling process.
+	//
+	// pendingWrite is a flag set when a status change must be written at the next
+	// reconciliation, no matter if the cached status is stale or not.
+	//
+	// A reconcile cycle can be explicitly run using the chReconcile channel.
 	resyncPeriod time.Duration
+	pendingWrite bool
+	chReconcile  chan struct{}
 
+	client client.Client
 	logger *zap.SugaredLogger
 	m      sync.Mutex
 }
 
-func NewKubernetesManager(ctx context.Context, name, namespace, cmkey, instance string, staleCache, resyncPeriod time.Duration, kc client.Client, log *zap.SugaredLogger) status.Manager {
+// Returns a kubernetes status manager object. Parameters are:
+// - name, namespace and key for the ConfigMap where the status will be written to.
+// - identifier for this broker instance.
+// - cache expiration that will force a new status write operation
+// - resync period that check for pending changes and writes to the ConfigMap if any.
+// - kubernetes client
+// - logger
+func NewKubernetesManager(ctx context.Context, name, namespace, cmkey, instance string, cacheExpiration, resyncPeriod time.Duration, kc client.Client, log *zap.SugaredLogger) status.Manager {
 	km := &kubernetesManager{
 		instance: instance,
 		key: client.ObjectKey{
@@ -49,8 +70,10 @@ func NewKubernetesManager(ctx context.Context, name, namespace, cmkey, instance 
 			Name:      name,
 		},
 
-		resyncPeriod: resyncPeriod,
-		staleCache:   staleCache,
+		cached:          &status.Status{},
+		cacheExpiration: cacheExpiration,
+		resyncPeriod:    resyncPeriod,
+
 		pendingWrite: true,
 		chReconcile:  make(chan struct{}),
 
@@ -61,13 +84,13 @@ func NewKubernetesManager(ctx context.Context, name, namespace, cmkey, instance 
 		m:      sync.Mutex{},
 	}
 
-	km.start(ctx)
+	go km.start(ctx)
 
 	return km
 }
 
 func (m *kubernetesManager) isCacheStale() bool {
-	return m.lastStatusWrite.Add(m.staleCache).After(time.Now())
+	return m.lastStatusWrite.Add(m.cacheExpiration).Before(time.Now())
 }
 
 func (m *kubernetesManager) start(ctx context.Context) {
@@ -84,11 +107,16 @@ func (m *kubernetesManager) start(ctx context.Context) {
 			return
 		}
 
+		// Skip if there are no pending writes and the
+		// cache is not stale
+		if !m.pendingWrite && !m.isCacheStale() {
+			continue
+		}
+
 		err := m.cachedToKubernetesConfigMap(ctx)
 		if err != nil {
 			m.logger.Errorw("could not read status configmap", zap.Error(err))
 		}
-
 	}
 }
 
@@ -96,101 +124,29 @@ func (m *kubernetesManager) UpdateIngestStatus(is *status.IngestStatus) {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	if !m.pendingWrite && !m.isCacheStale() && m.cached.Ingest.EqualSoftStatus(is) {
+	if m.cached.Ingest.EqualStatus(is) {
+		// If status is equal do not enqueue an update.
 		return
 	}
 
-	// Update cached status ingest element. Even if we fail to update it now we want
-	// some later try to have it
 	m.cached.Ingest = *is
 
-	// Send reconcile signal
+	if m.cached.Ingest.EqualSoftStatus(is) {
+		// This update is not a priority, overwrite the ingest element and
+		// let a different status update (like the status cache expired)
+		// to writte it to the ConfigMap
+		return
+	}
+
+	// This update must be written asap. Mark the flag and send the signal
+	m.pendingWrite = true
 	m.chReconcile <- struct{}{}
-
-	// err := m.cachedToKubernetesConfigMap(ctx)
-	// if err != nil {
-	// 	m.logger.Errorw("could not read status configmap", zap.Error(err))
-	// }
-
-	// cm, err := m.readConfigMap(ctx)
-	// if err != nil {
-	// 	m.logger.Errorw("could not read status configmap", zap.Error(err))
-	// 	return
-	// }
-
-	// b, err := json.Marshal(m.cached)
-	// if err != nil {
-	// 	m.logger.Errorw("could not serialize cached status into string", zap.Error(err))
-	// 	return
-	// }
-
-	// update configmap at kubernetes
-	// st := m.statusFromConfigMap(cm)
-	// st[m.instance] = *m.cached
-	// if err = m.instanceStatusToConfigMap(ctx, cm, st); err != nil {
-	// 	// mark as pending!!
-	// 	m.logger.Errorw("could not serialize cached status into string", zap.Error(err))
-	// }
-
-	// m.lastStatusWrite = time.Now()
-
-	// status, ok := cm.Data[m.cmkey]
-	// if !ok {
-	// 	// status =
-	// }
-
-	// st := map[string]status.Status{}
-	// data, ok := cm.Data[m.cmkey]
-	// bexisting := []byte(data)
-	// if ok {
-	// 	if err = json.Unmarshal(bexisting, &st); err != nil {
-	// 		m.logger.Errorw("status ConfigMap contents could not be parsed. Status will be overwritten", zap.Error(err))
-	// 	}
-	// }
-
-	// // // Compare incoming ingest
-	// // if m.cached.Ingest.EqualSoftStatus(is) {
-	// // 	// no hard changes found, only continue if an update is pending because some
-	// // 	// previous cycle was canceled, or
-	// // }
-	// // m.cached.Ingest = *is
-
-	// m.m.Lock()
-	// defer m.m.Unlock()
-	// m.cached.Ingest = *is
-
-	// // TODO choose soft or hard
-
-	// if st.EqualSoftStatus(m.cached) {
-	// 	m.logger.Debug("no need to update status after ingest state update")
-	// 	return
-	// }
-
-	// if err != nil {
-	// 	m.logger.Errorw("could not parse RFC3339 Nano timestamp", zap.Error(err))
-	// 	return
-	// }
-
-	// t := time.Now()
-	// m.cached.LastUpdated = &t
-
-	// if err != nil {
-	// 	m.logger.Errorw("could not read status configmap", zap.Error(err))
-	// 	return
-	// }
-
-	// st := map[string]status.Status{}
-	// data, ok := cm.Data[m.cmkey]
-	// bexisting := []byte(data)
-	// if ok {
-	// 	if err = json.Unmarshal(bexisting, &st); err != nil {
-	// 		m.logger.Errorw("status ConfigMap contents could not be parsed. Status will be overwritten", zap.Error(err))
-	// 	}
-	// }
-
 }
 
 func (m *kubernetesManager) cachedToKubernetesConfigMap(ctx context.Context) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+
 	cm, err := m.readConfigMap(ctx)
 	if err != nil {
 		return fmt.Errorf("could not read status configmap: %w", err)
@@ -212,6 +168,8 @@ func (m *kubernetesManager) cachedToKubernetesConfigMap(ctx context.Context) err
 	}
 
 	m.lastStatusWrite = time.Now()
+	m.pendingWrite = false
+
 	return nil
 }
 
@@ -222,6 +180,9 @@ func (m *kubernetesManager) readConfigMap(ctx context.Context) (*corev1.ConfigMa
 		return nil, err
 	}
 
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
 	return cm, nil
 }
 
@@ -238,50 +199,3 @@ func (m *kubernetesManager) statusFromConfigMap(cm *corev1.ConfigMap) map[string
 
 	return st
 }
-
-// func (m *kubernetesManager) UpdateStatus(ctx context.Context, s *status.Status) error {
-// 	m.m.Lock()
-// 	defer m.m.Unlock()
-
-// 	cm := &corev1.ConfigMap{}
-// 	err := m.client.Get(ctx, m.key, cm)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	st := map[string]status.Status{}
-// 	data, ok := cm.Data[m.cmkey]
-// 	bexisting := []byte(data)
-// 	if ok {
-// 		if err = json.Unmarshal(bexisting, &st); err != nil {
-// 			m.logger.Errorw("status ConfigMap contents could not be parsed. Status will be overwritten", zap.Error(err))
-// 		}
-// 	}
-
-// 	// current, ok := st[m.instance]
-// 	// if ok {
-// 	// 	current.
-// 	// }
-
-// 	st[m.instance] = *s
-
-// 	b, err := json.Marshal(st)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to marshal status: %w", err)
-// 	}
-
-// 	cm.Data[m.cmkey] = string(b)
-// 	m.client.Update(ctx, cm, &client.UpdateOptions{})
-
-// 	return nil
-// }
-
-// func (m *kubernetesManager) instanceStatusToConfigMap(ctx context.Context, cm *corev1.ConfigMap, status map[string]status.Status) error {
-// 	b, err := json.Marshal(status)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to marshal status: %w", err)
-// 	}
-
-// 	cm.Data[m.cmkey] = string(b)
-// 	return m.client.Update(ctx, cm, &client.UpdateOptions{})
-// }

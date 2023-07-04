@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -75,19 +74,26 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 
 	var statusManager status.Manager
 
-	if globals.KubernetesStatusConfigmap != "" {
+	if globals.KubernetesStatusConfigmapName != "" {
 		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
 		if err != nil {
 			return nil, err
 		}
 
 		statusManager = kstatus.NewKubernetesManager(globals.Context,
-			globals.KubernetesStatusConfigmap,
+			// ConfigMap identification
+			globals.KubernetesStatusConfigmapName,
 			globals.KubernetesNamespace,
-			kstatus.ConfigMapKey,
+			globals.KubernetesStatusConfigmapKey,
+
+			// Broker instance
 			globals.BrokerName,
-			time.Minute*2,
-			time.Minute,
+
+			/* Cached status expiry. When reached a re-write of the ConfigMap will be forced */
+			globals.StatusCacheExpiration,
+			/* Resync period */
+			globals.StatusResyncPeriod,
+
 			kc,
 			globals.Logger.Named("status"))
 	}
