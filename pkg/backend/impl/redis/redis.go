@@ -194,7 +194,7 @@ func (s *redis) Produce(ctx context.Context, event *cloudevents.Event) error {
 
 // SubscribeBounded is a variant of the Subscribe function that supports bounded subscriptions.
 // It adds the option of using a startId and endId for the replay feature.
-func (s *redis) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher) error {
+func (s *redis) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher, scb backend.SubscriptionStatusChange) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

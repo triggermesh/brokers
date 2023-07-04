@@ -2,7 +2,6 @@ package status
 
 type Manager interface {
 	UpdateIngestStatus(is *IngestStatus)
-	// UpdateStatus(ctx context.Context, s *Status) error
-	//UpdateSubscription()
-	//DeleteSubscription()
+	EnsureSubscription(name string, ss *SubscriptionStatus)
+	EnsureNoSubscription(name string)
 }

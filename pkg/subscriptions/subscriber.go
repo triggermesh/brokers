@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/rickb777/date/period"
@@ -18,14 +19,16 @@ import (
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	cfgbroker "github.com/triggermesh/brokers/pkg/config/broker"
+	"github.com/triggermesh/brokers/pkg/status"
 )
 
 type subscriber struct {
 	trigger cfgbroker.Trigger
 
-	name     string
-	backend  backend.Interface
-	ceClient cloudevents.Client
+	name          string
+	backend       backend.Interface
+	statusManager status.Manager
+	ceClient      cloudevents.Client
 
 	// We need to have both the parent context used to build the subscriber and the
 	// local context used to send CloudEvents that contains the target and delivery
@@ -93,6 +96,15 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
+	if s.statusManager != nil {
+		defer func() {
+			t := time.Now()
+			s.statusManager.EnsureSubscription(s.name, &status.SubscriptionStatus{
+				LastProcessed: &t,
+			})
+		}()
+	}
+
 	res := subscriptionsapi.NewAllFilter(materializeFiltersList(s.ctx, s.trigger.Filters)...).Filter(s.ctx, *event)
 	if res == eventfilter.FailFilter {
 		s.logger.Debugw("Skipped delivery due to filter", zap.Any("event", *event))
@@ -123,6 +135,12 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	}
 	s.logger.Errorw(msg, zap.Bool("lost", true),
 		zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+}
+
+func (s *subscriber) statusChange(ss *status.SubscriptionStatus) {
+	if s.statusManager != nil {
+		s.statusManager.EnsureSubscription(s.name, ss)
+	}
 }
 
 func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {

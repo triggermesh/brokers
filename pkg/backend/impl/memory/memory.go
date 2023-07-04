@@ -60,7 +60,7 @@ func (s *memory) Produce(ctx context.Context, event *cloudevents.Event) error {
 	return nil
 }
 
-func (s *memory) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher) error {
+func (s *memory) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend.ConsumerDispatcher, scb backend.SubscriptionStatusChange) error {
 	if bounds != nil {
 		return errors.New("bounds not supported for memory broker")
 	}

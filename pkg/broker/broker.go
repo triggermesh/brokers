@@ -59,21 +59,8 @@ type Instance struct {
 func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	globals.Logger.Debug("Creating subscription manager")
 
-	// Create subscription manager.
-	sm, err := subscriptions.New(globals.Context, globals.Logger.Named("subs"), b)
-	if err != nil {
-		return nil, err
-	}
-
-	globals.Logger.Debug("Creating HTTP ingest server")
-	// Create metrics reporter.
-	ir, err := metrics.NewReporter(globals.Context)
-	if err != nil {
-		return nil, err
-	}
-
+	// Create status manager to be injected into ingest and subscription manager.
 	var statusManager status.Manager
-
 	if globals.KubernetesStatusConfigmapName != "" {
 		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
 		if err != nil {
@@ -96,6 +83,19 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 
 			kc,
 			globals.Logger.Named("status"))
+	}
+
+	// Create subscription manager.
+	sm, err := subscriptions.New(globals.Context, globals.Logger.Named("subs"), b, statusManager)
+	if err != nil {
+		return nil, err
+	}
+
+	globals.Logger.Debug("Creating HTTP ingest server")
+	// Create metrics reporter.
+	ir, err := metrics.NewReporter(globals.Context)
+	if err != nil {
+		return nil, err
 	}
 
 	i := ingest.NewInstance(ir, globals.Logger.Named("ingest"),
