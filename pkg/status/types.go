@@ -137,6 +137,29 @@ type SubscriptionStatus struct {
 	LastProcessed *time.Time `json:"lastProcessed,omitempty"`
 }
 
+func (ss *SubscriptionStatus) Merge(in *SubscriptionStatus) {
+	if in == nil {
+		return
+	}
+	if ss == nil {
+		*ss = *in
+		return
+	}
+
+	if ss.LastProcessed == nil && in.LastProcessed != nil {
+		ss.LastProcessed = in.LastProcessed
+	}
+
+	if ss.Status == "" && in.Status != "" {
+		ss.Status = in.Status
+	}
+
+	// Message is merged only if the status does not change
+	if ss.Message == nil && in.Message != nil && ss.Status == in.Status {
+		ss.Message = in.Message
+	}
+}
+
 func (ss *SubscriptionStatus) EqualSoftStatus(in *SubscriptionStatus) bool {
 	if ss.Message == nil && in.Message != nil ||
 		ss.Message != nil && in.Message == nil ||

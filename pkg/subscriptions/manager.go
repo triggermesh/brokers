@@ -141,7 +141,7 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) (*sub
 		return nil, fmt.Errorf("could not setup trigger: %w", err)
 	}
 
-	if err := m.backend.Subscribe(name, trigger.Bounds, s.dispatchCloudEvent); err != nil {
+	if err := m.backend.Subscribe(name, trigger.Bounds, s.dispatchCloudEvent, s.statusChange); err != nil {
 		return nil, fmt.Errorf("could not create subscription for trigger: %w", err)
 	}
 

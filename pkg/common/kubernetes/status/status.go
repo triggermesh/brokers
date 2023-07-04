@@ -151,6 +151,9 @@ func (m *kubernetesManager) EnsureSubscription(name string, ss *status.Subscript
 
 	s, ok := m.cached.Subscriptions[name]
 
+	// Fill not informed values with existing.
+	ss.Merge(s)
+
 	switch {
 	case ok && s.EqualStatus(ss):
 		// If status is equal do not enqueue an update.
@@ -164,6 +167,7 @@ func (m *kubernetesManager) EnsureSubscription(name string, ss *status.Subscript
 	default:
 		// Either a new subscription or an update that needs
 		// to be written asap
+
 		m.cached.Subscriptions[name] = ss
 
 		m.pendingWrite = true

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/rickb777/date/period"
@@ -95,6 +96,13 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
+	defer func() {
+		t := time.Now()
+		s.statusManager.EnsureSubscription(s.name, &status.SubscriptionStatus{
+			LastProcessed: &t,
+		})
+	}()
+
 	res := subscriptionsapi.NewAllFilter(materializeFiltersList(s.ctx, s.trigger.Filters)...).Filter(s.ctx, *event)
 	if res == eventfilter.FailFilter {
 		s.logger.Debugw("Skipped delivery due to filter", zap.Any("event", *event))
@@ -125,6 +133,10 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 	}
 	s.logger.Errorw(msg, zap.Bool("lost", true),
 		zap.String("type", event.Type()), zap.String("source", event.Source()), zap.String("id", event.ID()))
+}
+
+func (s *subscriber) statusChange(ss *status.SubscriptionStatus) {
+	s.statusManager.EnsureSubscription(s.name, ss)
 }
 
 func (s *subscriber) send(ctx context.Context, event *cloudevents.Event) bool {
