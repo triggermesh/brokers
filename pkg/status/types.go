@@ -47,7 +47,7 @@ func (s *Status) EqualSoftStatus(in *Status) bool {
 
 		// If subscription found at incoming status, but soft equal
 		// of their contents is not true.
-		if !s.Subscriptions[k].equalSoftStatus(ins) {
+		if !s.Subscriptions[k].EqualSoftStatus(ins) {
 			return false
 		}
 	}
@@ -84,7 +84,7 @@ func (s *Status) EqualStatus(in *Status) bool {
 
 		// If subscription found at incoming status, but equal
 		// of their contents is not true.
-		if !s.Subscriptions[k].equalStatus(ins) {
+		if !s.Subscriptions[k].EqualStatus(ins) {
 			return false
 		}
 	}
@@ -131,14 +131,13 @@ func (is *IngestStatus) EqualStatus(in *IngestStatus) bool {
 }
 
 type SubscriptionStatus struct {
-	Status  string
-	Message *string
+	Status  string  `json:"status"`
+	Message *string `json:"message,omitempty"`
 
-	LastSent     *time.Time `json:"lastSent,omitempty"`
-	LastFiltered *time.Time `json:"lastFiltered,omitempty"`
+	LastProcessed *time.Time `json:"lastProcessed,omitempty"`
 }
 
-func (ss *SubscriptionStatus) equalSoftStatus(in *SubscriptionStatus) bool {
+func (ss *SubscriptionStatus) EqualSoftStatus(in *SubscriptionStatus) bool {
 	if ss.Message == nil && in.Message != nil ||
 		ss.Message != nil && in.Message == nil ||
 		(ss.Message != nil && in.Message != nil && *ss.Message != *in.Message) {
@@ -148,21 +147,16 @@ func (ss *SubscriptionStatus) equalSoftStatus(in *SubscriptionStatus) bool {
 	return ss.Status == in.Status
 }
 
-func (ss *SubscriptionStatus) equalStatus(in *SubscriptionStatus) bool {
-	if !ss.equalSoftStatus(in) {
+func (ss *SubscriptionStatus) EqualStatus(in *SubscriptionStatus) bool {
+	if !ss.EqualSoftStatus(in) {
 		return false
 	}
 
-	if ss.LastSent == nil && in.LastSent != nil ||
-		ss.LastSent != nil && in.LastSent == nil ||
-		(ss.LastSent != nil && in.LastSent != nil && *ss.LastSent != *in.LastSent) {
+	if ss.LastProcessed == nil && in.LastProcessed != nil ||
+		ss.LastProcessed != nil && in.LastProcessed == nil ||
+		(ss.LastProcessed != nil && in.LastProcessed != nil && *ss.LastProcessed != *in.LastProcessed) {
 		return false
 	}
 
-	if ss.LastFiltered == nil && in.LastFiltered != nil ||
-		ss.LastFiltered != nil && in.LastFiltered == nil ||
-		(ss.LastFiltered != nil && in.LastFiltered != nil && *ss.LastFiltered != *in.LastFiltered) {
-		return false
-	}
 	return true
 }

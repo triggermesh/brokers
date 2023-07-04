@@ -70,7 +70,9 @@ func NewKubernetesManager(ctx context.Context, name, namespace, cmkey, instance 
 			Name:      name,
 		},
 
-		cached:          &status.Status{},
+		cached: &status.Status{
+			Subscriptions: make(map[string]*status.SubscriptionStatus),
+		},
 		cacheExpiration: cacheExpiration,
 		resyncPeriod:    resyncPeriod,
 
@@ -141,6 +143,42 @@ func (m *kubernetesManager) UpdateIngestStatus(is *status.IngestStatus) {
 	// This update must be written asap. Mark the flag and send the signal
 	m.pendingWrite = true
 	m.chReconcile <- struct{}{}
+}
+
+func (m *kubernetesManager) EnsureSubscription(name string, ss *status.SubscriptionStatus) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	s, ok := m.cached.Subscriptions[name]
+
+	switch {
+	case ok && s.EqualStatus(ss):
+		// If status is equal do not enqueue an update.
+
+	case ok && s.EqualSoftStatus(ss):
+		m.cached.Subscriptions[name] = ss
+		// This update is not a priority, overwrite the ingest element and
+		// let a different status update (like the status cache expired)
+		// to writte it to the ConfigMap
+
+	default:
+		// Either a new subscription or an update that needs
+		// to be written asap
+		m.cached.Subscriptions[name] = ss
+
+		m.pendingWrite = true
+		m.chReconcile <- struct{}{}
+	}
+}
+func (m *kubernetesManager) EnsureNoSubscription(name string) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	if _, ok := m.cached.Subscriptions[name]; ok {
+		delete(m.cached.Subscriptions, name)
+		m.pendingWrite = true
+		m.chReconcile <- struct{}{}
+	}
 }
 
 func (m *kubernetesManager) cachedToKubernetesConfigMap(ctx context.Context) error {

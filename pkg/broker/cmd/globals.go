@@ -164,7 +164,7 @@ func (s *Globals) Validate() error {
 			msg = append(msg, "Cannot inform Observability ConfigMap when a file is used for broker configuration.")
 		}
 
-		if s.KubernetesNamespace != "" {
+		if s.KubernetesStatusConfigmapName == "" && s.KubernetesNamespace != "" {
 			msg = append(msg, "Kubernetes namespace must not be informed when local File configuration is used.")
 		}
 

@@ -5,6 +5,7 @@ package subscriptions
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -60,16 +61,36 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			m.logger.Infow("Deleting subscription", zap.String("name", name))
 			sub.unsubscribe()
 			delete(m.subscribers, name)
+
+			if m.statusManager != nil {
+				m.statusManager.EnsureNoSubscription(name)
+			}
 		}
 	}
 
 	for name, trigger := range c.Triggers {
 		s, ok := m.subscribers[name]
 		if !ok {
-			s := m.createSubscriber(name, trigger)
-			if s == nil {
+			s, err := m.createSubscriber(name, trigger)
+			if err != nil {
+				msg := "Failed to create trigger stats reporter"
+				m.logger.Errorw(msg, zap.String("trigger", name), zap.Error(err))
+				if m.statusManager != nil {
+					m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
+						Status:  "Failed",
+						Message: &msg,
+					})
+				}
+
 				continue
 			}
+
+			if m.statusManager != nil {
+				m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
+					Status: "Running",
+				})
+			}
+
 			m.subscribers[name] = s
 			m.logger.Infow("Subscription for trigger updated", zap.String("name", name))
 			continue
@@ -89,24 +110,21 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 	}
 }
 
-func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) *subscriber {
+func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) (*subscriber, error) {
 	// Create CloudEvents client with reporter for Trigger.
 	ir, err := metrics.NewReporter(m.ctx, name)
 	if err != nil {
-		m.logger.Errorw("Failed to setup trigger stats reporter", zap.String("trigger", name), zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("failed to setup trigger stats reporter: %w", err)
 	}
 
 	p, err := obshttp.NewObservedHTTP()
 	if err != nil {
-		m.logger.Errorw("Could not create CloudEvents HTTP protocol", zap.String("trigger", name), zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("could not create CloudEvents HTTP protocol: %w", err)
 	}
 
 	ceClient, err := ceclient.New(p, ceclient.WithObservabilityService(metrics.NewOpenCensusObservabilityService(ir)))
 	if err != nil {
-		m.logger.Errorw("Could not create CloudEvents HTTP client", zap.String("trigger", name), zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("could not create CloudEvents HTTP client: %w", err)
 	}
 
 	s := &subscriber{
@@ -120,14 +138,12 @@ func (m *Manager) createSubscriber(name string, trigger cfgbroker.Trigger) *subs
 
 	m.logger.Infow("Creating new subscription from trigger configuration", zap.String("name", name), zap.Any("trigger", trigger))
 	if err := s.updateTrigger(trigger); err != nil {
-		m.logger.Errorw("Could not setup trigger", zap.String("trigger", name), zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("could not setup trigger: %w", err)
 	}
 
 	if err := m.backend.Subscribe(name, trigger.Bounds, s.dispatchCloudEvent); err != nil {
-		m.logger.Errorw("Could not create subscription for trigger", zap.String("trigger", name), zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("could not create subscription for trigger: %w", err)
 	}
 
-	return s
+	return s, nil
 }
