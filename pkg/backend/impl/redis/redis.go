@@ -246,6 +246,9 @@ func (s *redis) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 		// caller's callback for dispatching events from Redis.
 		ccbDispatch: ccb,
 
+		// caller's callback for setting subscription status.
+		scb: scb,
+
 		// cancel function let us control when we want to exit the subscription loop.
 		ctx:    ctx,
 		cancel: cancel,

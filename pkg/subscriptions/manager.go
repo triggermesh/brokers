@@ -86,8 +86,10 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 			}
 
 			if m.statusManager != nil {
+				// Initial state is Ready, it changes to Running when
+				// the first event is processed.
 				m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
-					Status: "Running",
+					Status: "Ready",
 				})
 			}
 

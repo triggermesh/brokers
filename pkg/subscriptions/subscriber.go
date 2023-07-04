@@ -100,6 +100,7 @@ func (s *subscriber) dispatchCloudEvent(event *cloudevents.Event) {
 		defer func() {
 			t := time.Now()
 			s.statusManager.EnsureSubscription(s.name, &status.SubscriptionStatus{
+				Status:        "Running",
 				LastProcessed: &t,
 			})
 		}()
