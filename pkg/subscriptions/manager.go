@@ -73,7 +73,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 		if !ok {
 			s, err := m.createSubscriber(name, trigger)
 			if err != nil {
-				msg := "Failed to create trigger stats reporter"
+				msg := "Failed to create trigger subscription"
 				m.logger.Errorw(msg, zap.String("trigger", name), zap.Error(err))
 				if m.statusManager != nil {
 					m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
