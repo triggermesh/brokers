@@ -77,7 +77,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 				m.logger.Errorw(msg, zap.String("trigger", name), zap.Error(err))
 				if m.statusManager != nil {
 					m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
-						Status:  "Failed",
+						Status:  status.SubscriptionStatusFailed,
 						Message: &msg,
 					})
 				}
@@ -89,7 +89,7 @@ func (m *Manager) UpdateFromConfig(c *cfgbroker.Config) {
 				// Initial state is Ready, it changes to Running when
 				// the first event is processed.
 				m.statusManager.EnsureSubscription(name, &status.SubscriptionStatus{
-					Status: "Ready",
+					Status: status.SubscriptionStatusReady,
 				})
 			}
 

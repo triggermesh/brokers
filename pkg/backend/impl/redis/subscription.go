@@ -157,7 +157,7 @@ func (s *subscription) start() {
 				if s.checkBoundsExceeded != nil {
 					if exitLoop = s.checkBoundsExceeded(msg.ID); exitLoop {
 						s.scb(&status.SubscriptionStatus{
-							Status: "Completed",
+							Status: status.SubscriptionStatusComplete,
 						})
 						break
 					}
