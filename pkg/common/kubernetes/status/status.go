@@ -142,7 +142,8 @@ func (m *kubernetesManager) UpdateIngestStatus(is *status.IngestStatus) {
 
 	// This update must be written asap. Mark the flag and send the signal
 	m.pendingWrite = true
-	m.chReconcile <- struct{}{}
+
+	m.maybeEnqueueReconcile()
 }
 
 func (m *kubernetesManager) EnsureSubscription(name string, ss *status.SubscriptionStatus) {
@@ -171,7 +172,7 @@ func (m *kubernetesManager) EnsureSubscription(name string, ss *status.Subscript
 		m.cached.Subscriptions[name] = ss
 
 		m.pendingWrite = true
-		m.chReconcile <- struct{}{}
+		m.maybeEnqueueReconcile()
 	}
 }
 func (m *kubernetesManager) EnsureNoSubscription(name string) {
@@ -181,7 +182,7 @@ func (m *kubernetesManager) EnsureNoSubscription(name string) {
 	if _, ok := m.cached.Subscriptions[name]; ok {
 		delete(m.cached.Subscriptions, name)
 		m.pendingWrite = true
-		m.chReconcile <- struct{}{}
+		m.maybeEnqueueReconcile()
 	}
 }
 
@@ -240,4 +241,14 @@ func (m *kubernetesManager) statusFromConfigMap(cm *corev1.ConfigMap) map[string
 	}
 
 	return st
+}
+
+func (m *kubernetesManager) maybeEnqueueReconcile() {
+	select {
+	case m.chReconcile <- struct{}{}:
+	// Try to send but if busy skip
+
+	default:
+		m.logger.Debugw("Skipping status reconciliation due to full queue")
+	}
 }
