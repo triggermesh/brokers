@@ -89,11 +89,7 @@ func (s *Status) EqualStatus(in *Status) bool {
 		}
 	}
 
-	if s.LastUpdated != in.LastUpdated {
-		return false
-	}
-
-	return true
+	return s.LastUpdated == in.LastUpdated
 }
 
 type IngestStatus struct {
