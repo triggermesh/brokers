@@ -11,10 +11,11 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/triggermesh/brokers/pkg/backend"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
-	goredis "github.com/redis/go-redis/v9"
+	"github.com/triggermesh/brokers/pkg/backend"
+	"github.com/triggermesh/brokers/pkg/status"
 )
 
 const (
@@ -44,6 +45,9 @@ type subscription struct {
 
 	// caller's callback for dispatching events from Redis.
 	ccbDispatch backend.ConsumerDispatcher
+
+	// caller's callback for subscription status changes
+	scb backend.SubscriptionStatusChange
 
 	// cancel function let us control when the subscription loop should exit.
 	ctx    context.Context
@@ -152,6 +156,9 @@ func (s *subscription) start() {
 				// exit the loop.
 				if s.checkBoundsExceeded != nil {
 					if exitLoop = s.checkBoundsExceeded(msg.ID); exitLoop {
+						s.scb(&status.SubscriptionStatus{
+							Status: status.SubscriptionStatusComplete,
+						})
 						break
 					}
 				}

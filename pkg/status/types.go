@@ -99,8 +99,8 @@ func (s *Status) EqualStatus(in *Status) bool {
 }
 
 type IngestStatus struct {
-	Status  string  `json:"status"`
-	Message *string `json:"message,omitempty"`
+	Status  IngestStatusChoice `json:"status"`
+	Message *string            `json:"message,omitempty"`
 
 	// LastIngested event into the broker.
 	LastIngested *time.Time `json:"lastIngested,omitempty"`
@@ -131,8 +131,8 @@ func (is *IngestStatus) EqualStatus(in *IngestStatus) bool {
 }
 
 type SubscriptionStatus struct {
-	Status  string  `json:"status"`
-	Message *string `json:"message,omitempty"`
+	Status  SubscriptionStatusChoice `json:"status"`
+	Message *string                  `json:"message,omitempty"`
 
 	LastProcessed *time.Time `json:"lastProcessed,omitempty"`
 }

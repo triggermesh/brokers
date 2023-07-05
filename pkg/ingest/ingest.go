@@ -107,10 +107,10 @@ func (i *Instance) Start(ctx context.Context) error {
 	if i.statusManager != nil {
 		// Notify and defer status manager
 		i.statusManager.UpdateIngestStatus(&status.IngestStatus{
-			Status: "Running",
+			Status: status.IngestStatusReady,
 		})
 		defer i.statusManager.UpdateIngestStatus(&status.IngestStatus{
-			Status: "Closed",
+			Status: status.IngestStatusClosed,
 		})
 
 		handler = i.cloudEventsStatusManagerHandler
@@ -141,10 +141,12 @@ func (i *Instance) cloudEventsStatusManagerHandler(ctx context.Context, event cl
 	e, p := i.cloudEventsHandler(ctx, event)
 
 	t := time.Now()
-	i.statusManager.UpdateIngestStatus(&status.IngestStatus{
-		Status:       "Started",
-		LastIngested: &t,
-	})
+	if i.statusManager != nil {
+		i.statusManager.UpdateIngestStatus(&status.IngestStatus{
+			Status:       status.IngestStatusRunning,
+			LastIngested: &t,
+		})
+	}
 
 	return e, p
 }
