@@ -42,16 +42,17 @@ const (
 )
 
 type Instance struct {
-	backend      backend.Interface
-	ingest       *ingest.Instance
-	subscription *subscriptions.Manager
-	bcw          *cfgbwatcher.Watcher
-	ocw          *cfgowatcher.Watcher
-	bcp          *cfgbpoller.Poller
-	ocp          *cfgopoller.Poller
-	km           *controller.Manager
-	staticConfig *cfgbroker.Config
-	status       Status
+	backend       backend.Interface
+	ingest        *ingest.Instance
+	subscription  *subscriptions.Manager
+	bcw           *cfgbwatcher.Watcher
+	ocw           *cfgowatcher.Watcher
+	bcp           *cfgbpoller.Poller
+	ocp           *cfgopoller.Poller
+	km            *controller.Manager
+	staticConfig  *cfgbroker.Config
+	statusManager status.Manager
+	status        Status
 
 	logger *zap.SugaredLogger
 }
@@ -60,29 +61,33 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 	globals.Logger.Debug("Creating subscription manager")
 
 	// Create status manager to be injected into ingest and subscription manager.
-	var statusManager status.Manager
+	statusManager := status.NewManager(
+		/* Cached status expiry. When reached a re-write of the ConfigMap will be forced */
+		globals.StatusForcePeriod,
+		/* Resync period */
+		globals.StatusCheckPeriod,
+		globals.Logger.Named("status"),
+	)
+
 	if globals.KubernetesStatusConfigmapName != "" {
 		kc, err := client.New(config.GetConfigOrDie(), client.Options{})
 		if err != nil {
 			return nil, err
 		}
 
-		statusManager = kstatus.NewKubernetesManager(globals.Context,
+		kbackend := kstatus.NewKubernetesBackend(
+
 			// ConfigMap identification
 			globals.KubernetesStatusConfigmapName,
 			globals.KubernetesNamespace,
 			globals.KubernetesStatusConfigmapKey,
-
 			// Broker instance
 			globals.BrokerName,
-
-			/* Cached status expiry. When reached a re-write of the ConfigMap will be forced */
-			globals.StatusCacheExpiration,
-			/* Resync period */
-			globals.StatusResyncPeriod,
-
 			kc,
-			globals.Logger.Named("status"))
+			globals.Logger.Named("kubestatus"),
+		)
+
+		statusManager.RegisterBackendStatusWriters(kbackend)
 	}
 
 	// Create subscription manager.
@@ -105,10 +110,11 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 
 	globals.Logger.Debug("Creating broker instance")
 	broker := &Instance{
-		backend:      b,
-		ingest:       i,
-		subscription: sm,
-		status:       StatusStopped,
+		backend:       b,
+		ingest:        i,
+		subscription:  sm,
+		statusManager: statusManager,
+		status:        StatusStopped,
 
 		logger: globals.Logger.Named("broker"),
 	}
@@ -253,6 +259,13 @@ func (i *Instance) Start(inctx context.Context) error {
 			i.status = StatusStopping
 		}
 	}()
+
+	// Launch status manager
+	i.logger.Debug("Starting status manager")
+	grp.Go(func() error {
+		i.statusManager.Start(ctx)
+		return nil
+	})
 
 	// Initialization will create structures, execute migrations
 	// and claim non processed messages from the backend.

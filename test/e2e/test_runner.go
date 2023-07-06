@@ -113,11 +113,13 @@ func (r *BrokerTestRunner) AddBroker(name string, port int, backend backend.Inte
 	observedLogger := zap.New(r.zapcore)
 
 	g := &pkgcmd.Globals{
-		Logger:           observedLogger.Sugar(),
-		Port:             port,
-		BrokerConfigPath: cfgfile.Name(),
-		Context:          r.mainCtx,
-		ConfigMethod:     pkgcmd.ConfigMethodFileWatcher,
+		Logger:            observedLogger.Sugar(),
+		Port:              port,
+		BrokerConfigPath:  cfgfile.Name(),
+		Context:           r.mainCtx,
+		ConfigMethod:      pkgcmd.ConfigMethodFileWatcher,
+		StatusCheckPeriod: time.Minute,
+		StatusForcePeriod: time.Minute,
 	}
 
 	i, err := broker.NewInstance(g, backend)

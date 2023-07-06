@@ -63,18 +63,18 @@ type Globals struct {
 	KubernetesObservabilityConfigMapName string `help:"ConfigMap object name that contains the observability configuration." env:"KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME"`
 	KubernetesStatusConfigmapName        string `help:"ConfigMap object name where the broker instance should write its status." env:"KUBERNETES_STATUS_CONFIGMAP_NAME"`
 	KubernetesStatusConfigmapKey         string `help:"ConfigMap object key where the broker should write its status." env:"KUBERNETES_STATUS_CONFIGMAP_KEY" default:"status"`
-	KubernetesStatusResyncPeriod         string `help:"Period for running pending status write checks using ISO8601." env:"KUBERNETES_STATUS_RESYNC_PERIOD"  default:"PT10S"`
-	KubernetesStatusCacheExpiration      string `help:"Time to wait without forcing a status write to the ConfigMap using ISO8601." env:"KUBERNETES_STATUS_CACHE_EXPIRATION"  default:"PT1M"`
+	StatusReporterResyncCheckPeriod      string `help:"Period for running status checks for pending changes, using ISO8601." env:"STATUS_REPORTER_RESYNC_CHECK_PERIOD"  default:"PT10S"`
+	StatusReporterResyncForcePeriod      string `help:"Period for running status resync cycles that force status writes, using ISO8601." env:"STATUS_REPORTER_RESYNC_FORCE_PERIOD"  default:"PT1M"`
 
 	ObservabilityMetricsDomain string `help:"Domain to be used for some metrics reporters." env:"OBSERVABILITY_METRICS_DOMAIN" default:"triggermesh.io/eventing"`
 
-	Context               context.Context    `kong:"-"`
-	Logger                *zap.SugaredLogger `kong:"-"`
-	LogLevel              zap.AtomicLevel    `kong:"-"`
-	PollingPeriod         time.Duration      `kong:"-"`
-	ConfigMethod          ConfigMethod       `kong:"-"`
-	StatusResyncPeriod    time.Duration      `kong:"-"`
-	StatusCacheExpiration time.Duration      `kong:"-"`
+	Context           context.Context    `kong:"-"`
+	Logger            *zap.SugaredLogger `kong:"-"`
+	LogLevel          zap.AtomicLevel    `kong:"-"`
+	PollingPeriod     time.Duration      `kong:"-"`
+	ConfigMethod      ConfigMethod       `kong:"-"`
+	StatusCheckPeriod time.Duration      `kong:"-"`
+	StatusForcePeriod time.Duration      `kong:"-"`
 }
 
 func (s *Globals) Validate() error {
@@ -176,21 +176,19 @@ func (s *Globals) Validate() error {
 		msg = append(msg, "Either Kubernetes Secret or local file configuration must be informed.")
 	}
 
-	// If the status is enabled, parse durations for resync and expired cache.
-	if s.KubernetesStatusConfigmapName != "" {
-		p, err := period.Parse(s.KubernetesStatusResyncPeriod)
-		if err != nil {
-			msg = append(msg, fmt.Sprintf("Kubernetes status resync period is not an ISO8601 duration: %v", err))
-		} else {
-			s.StatusResyncPeriod = p.DurationApprox()
-		}
+	// parse durations for resync and expired cache.
+	p, err := period.Parse(s.StatusReporterResyncCheckPeriod)
+	if err != nil {
+		msg = append(msg, fmt.Sprintf("status resync check period is not an ISO8601 duration: %v", err))
+	} else {
+		s.StatusCheckPeriod = p.DurationApprox()
+	}
 
-		p, err = period.Parse(s.KubernetesStatusCacheExpiration)
-		if err != nil {
-			msg = append(msg, fmt.Sprintf("Kubernetes status cache expiration is not an ISO8601 duration: %v", err))
-		} else {
-			s.StatusCacheExpiration = p.DurationApprox()
-		}
+	p, err = period.Parse(s.StatusReporterResyncForcePeriod)
+	if err != nil {
+		msg = append(msg, fmt.Sprintf("status resync force period is not an ISO8601 duration: %v", err))
+	} else {
+		s.StatusForcePeriod = p.DurationApprox()
 	}
 
 	if len(msg) != 0 {

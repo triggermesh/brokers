@@ -12,7 +12,7 @@ type Status struct {
 	// More information on Duration format:
 	//  - https://www.iso.org/iso-8601-date-and-time-format.html
 	//  - https://en.wikipedia.org/wiki/ISO_8601
-	LastUpdated   *time.Time                     `json:"lastUpdated,omitempty"`
+	LastUpdated   time.Time                      `json:"lastUpdated,omitempty"`
 	Ingest        IngestStatus                   `json:"ingest,omitempty"`
 	Subscriptions map[string]*SubscriptionStatus `json:"subscriptions,omitempty"`
 }
@@ -89,13 +89,7 @@ func (s *Status) EqualStatus(in *Status) bool {
 		}
 	}
 
-	if s.LastUpdated == nil && in.LastUpdated != nil ||
-		s.LastUpdated != nil && in.LastUpdated == nil ||
-		(s.LastUpdated != nil && in.LastUpdated != nil && *s.LastUpdated != *in.LastUpdated) {
-		return false
-	}
-
-	return true
+	return s.LastUpdated == in.LastUpdated
 }
 
 type IngestStatus struct {

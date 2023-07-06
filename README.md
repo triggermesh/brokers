@@ -215,8 +215,8 @@ kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | |
 kubernetes-observability-configmap-name  | KUBERNETES_OBSERVABILITY_CONFIGMAP_NAME || ConfigMap object name that contains the observability configuration.
 kubernetes-status-configmap-name | KUBERNETES_STATUS_CONFIGMAP_NAME || ConfigMap object name where the broker instance should write its status.
 kubernetes-status-configmap-key | KUBERNETES_STATUS_CONFIGMAP_KEY | status | ConfigMap object key where the broker instance should write its status.
-kubernetes-status-resync-period | KUBERNETES_STATUS_RESYNC_PERIOD | PT10S | Period for running pending status write checks using ISO8601.
-kubernetes-status-cache-expiration | KUBERNETES_STATUS_CACHE_EXPIRATION | PT1M | Time to wait without forcing a status write to the ConfigMap using ISO8601.
+status-reporter-resync-check-period | STATUS_REPORTER_RESYNC_CHECK_PERIOD | PT10S | Period for running status checks for pending changes, using ISO8601.
+status-reporter-resync-force-period | STATUS_REPORTER_RESYNC_FORCE_PERIOD | PT1M | Period for running status resync cycles that force status writes, using ISO8601.
 config-polling-period                 | CONFIG_POLLING_PERIOD    | PT0S | ISO8601 duration for config polling. Disabled if PT0S. Enabling it will disable other configuration methods.
 broker-config                 | BROKER_CONFIG    | | JSON representation of broker configuration. Enabling it will disable other configuration methods.
 observability-config                 | BROKER_CONFIG    |  | JSON representation of observability configuration. Enabling it will disable other configuration methods.
