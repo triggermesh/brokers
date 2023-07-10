@@ -9,10 +9,10 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.0.5
-	github.com/rickb777/date v1.20.1
+	github.com/rickb777/date v1.20.2
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sync v0.3.0
 	knative.dev/eventing v0.36.7
 	knative.dev/pkg v0.0.0-20230320014357-4c84b1b51ee8
@@ -34,9 +34,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rickb777/plural v1.4.1 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/sys v0.9.0 // indirect
+	golang.org/x/term v0.9.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
