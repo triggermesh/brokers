@@ -123,3 +123,43 @@ jobs:
         args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-tmcore:
+    name: Update TriggerMesh Core
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    needs: release
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Checkout triggermesh/triggermesh-core
+      uses: actions/checkout@v3
+      with:
+        path: 'tm-core'
+        ref: 'main'
+        repository: 'triggermesh/triggermesh-core'
+        token: ${{ secrets.BOT_TOKEN }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.19
+
+    - name: Update brokers dependency on tm-core
+      working-directory: tm-core
+      run: |
+        go get github.com/triggermesh/brokers
+        git --no-pager diff
+
+    - name: Commit and push changes
+      working-directory: tm-core
+      run: |
+        git add -A
+        git status --porcelain
+        if [[ $(git status --porcelain | wc -l) -gt 0 ]]; then
+          git config --global user.name 'TriggerMesh Bot'
+          git config --global user.email 'bot@triggermesh.com'
+          git commit -m "Update brokers dependency to '${GITHUB_REF_NAME}'"
+          git push
+        fi
