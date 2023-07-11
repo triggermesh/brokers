@@ -83,6 +83,12 @@ func NewInstance(globals *cmd.Globals, b backend.Interface) (*Instance, error) {
 			globals.KubernetesStatusConfigmapKey,
 			// Broker instance
 			globals.BrokerName,
+			// When to delete other instances that might have been deleted
+			// from the ConfigMap status report.
+			// We will use 3 times the force period, which means the status will
+			// be removed for any instance that fails to update at least 2 times
+			// and up to 3 times their status at the ConfigMap
+			globals.StatusForcePeriod*3,
 			kc,
 			globals.Logger.Named("kubestatus"),
 		)

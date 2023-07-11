@@ -208,7 +208,7 @@ Name | Environment | Default | Information
 broker-config-path        | BROKER_CONFIG_PATH              | /etc/triggermesh/broker.conf | Path to broker configuration file.
 observability-config-path | OBSERVABILITY_CONFIG_PATH       | | Path to observability configuration file.
 port                      | PORT                            | 8080 | HTTP Port to listen for CloudEvents.
-broker-name             | BROKER_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to RedisBroker name.
+broker-name             | BROKER_NAME                   |`{hostname}` | Instance name. When running at Kubernetes should be set to the pod name.
 kubernetes-namespace      | KUBERNETES_NAMESPACE            | | Namespace where the broker is running.
 kubernetes-broker-config-secret-name  | KUBERNETES_BROKER_CONFIG_SECRET_NAME | | Secret object name that contains the broker configuration.
 kubernetes-broker-config-secret-key   | KUBERNETES_BROKER_CONFIG_SECRET_KEY  | | Secret object key that contains the broker configuration.
