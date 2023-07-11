@@ -85,7 +85,6 @@ func (b *kubernetesBackend) UpdateStatus(ctx context.Context, s *status.Status) 
 		}
 
 		if time.Since(st[k].LastUpdated) > b.instanceExpire {
-			b.logger.Infof("DEBUG DELETEME - i: %s -lu: %v -exp: %v", k, st[k].LastUpdated, b.instanceExpire)
 			b.logger.Infof("Deleting expired instance status for %s", k)
 			delete(st, k)
 		}
