@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -18,6 +19,9 @@ type kubernetesBackend struct {
 	// be used as the root element for the status reporting structure.
 	instance string
 
+	// Expiry for statuses informed from other instances.
+	instanceExpire time.Duration
+
 	// ConfigMap object and key identification
 	key   client.ObjectKey
 	cmkey string
@@ -29,13 +33,14 @@ type kubernetesBackend struct {
 // Returns a kubernetes status manager object. Parameters are:
 // - name, namespace and key for the ConfigMap where the status will be written to.
 // - identifier for this broker instance.
-// - cache expiration that will force a new status write operation
-// - resync period that check for pending changes and writes to the ConfigMap if any.
+// - instance expiration for all other instances informed at the configmap.
 // - kubernetes client
 // - logger
-func NewKubernetesBackend(name, namespace, cmkey, instance string, kc client.Client, log *zap.SugaredLogger) status.Backend {
+func NewKubernetesBackend(name, namespace, cmkey, instance string, instanceExpire time.Duration, kc client.Client, log *zap.SugaredLogger) status.Backend {
 	km := &kubernetesBackend{
-		instance: instance,
+		instance:       instance,
+		instanceExpire: instanceExpire,
+
 		key: client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
@@ -69,6 +74,20 @@ func (b *kubernetesBackend) UpdateStatus(ctx context.Context, s *status.Status) 
 	if ok {
 		if err := json.Unmarshal([]byte(data), &st); err != nil {
 			b.logger.Errorw("status ConfigMap contents could not be parsed. Status will be overwritten", zap.Error(err))
+		}
+	}
+
+	// Iterate all entries, remove those instances that are stale
+	for k := range st {
+		// Skip own instance, we will take care of it after this iteration.
+		if k == b.instance {
+			continue
+		}
+
+		if time.Since(st[k].LastUpdated) > b.instanceExpire {
+			b.logger.Infof("DEBUG DELETEME - i: %s -lu: %v -exp: %v", k, st[k].LastUpdated, b.instanceExpire)
+			b.logger.Infof("Deleting expired instance status for %s", k)
+			delete(st, k)
 		}
 	}
 
