@@ -127,15 +127,20 @@ func (m *manager) updateStatus(ctx context.Context) {
 	failed := false
 	for i := range m.statusBackends {
 		if err := m.statusBackends[i].UpdateStatus(ctx, m.cached); err != nil {
+			m.log.Errorw("Failed updating the status", zap.Error(err))
 			if failed {
 				failed = true
 			}
 		}
 	}
 
-	// If all backends succeeded unset the writeAsap flag
-	// and set the last status timestamp
-	if !failed {
+	if failed {
+		// If the status update failed, raise the flag to force
+		// write at the next cycle.
+		m.writeAsap = true
+	} else {
+		// If all backends succeeded unset the writeAsap flag
+		// and set the last status timestamp
 		m.writeAsap = false
 		m.lastStatusWrite = time.Now()
 	}
