@@ -35,6 +35,23 @@ builds:
     goarm:
       - "7"
 
+  - id: kafka-broker
+    main: ./cmd/kafka-broker
+    binary: kafka-broker
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - ppc64le
+    goarm:
+      - "7"
+
 archives:
   - id: default
     name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
