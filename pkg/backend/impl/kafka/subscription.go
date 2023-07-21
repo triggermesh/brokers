@@ -98,7 +98,7 @@ func (s *subscription) start() {
 				// TODO: we could refine errors and avoid exiting
 				// under all error conditions. There might be some recoverable
 				// errors that do not require exiting.
-				if exitLoop != true {
+				if !exitLoop {
 					exitLoop = true
 				}
 				s.logger.Error("Event consumption error",
@@ -120,7 +120,7 @@ func (s *subscription) start() {
 
 				// If there was no valid CE in the message ACK so that we do not receive it again.
 				if err := ce.Validate(); err != nil {
-					s.logger.Warn(fmt.Sprintf("Removing non CloudEvent message from backend: %s", record.Offset))
+					s.logger.Warn(fmt.Sprintf("Removing non CloudEvent message from backend: %v", record.Offset))
 					return
 				}
 

@@ -1,8 +1,14 @@
 package kafka
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
 type KafkaArgs struct {
 	Addresses []string `help:"Kafka addresses." env:"ADDRESSES"`
-	Topic     string   `help:"Kafka topic." env:"TOPIC"`
+	Topic     string   `help:"Kafka topic." env:"TOPIC" default:"triggermesh"`
 
 	// Username         string   `help:"Redis username." env:"USERNAME"`
 	// Password         string   `help:"Redis password." env:"PASSWORD"`
@@ -24,4 +30,43 @@ type KafkaArgs struct {
 	Instance string `kong:"-"`
 
 	TrackingIDEnabled bool `help:"Enables adding Kafka Offset as a CloudEvent attribute." env:"TRACKING_ID_ENABLED" default:"false"`
+}
+
+func (ka *KafkaArgs) Validate() error {
+	msg := []string{}
+
+	// Since there is a default value at addresses, we only check that cluster addresses and a value for
+	// and standalone instance that is different to the default must not be provided.
+	if len(ka.Addresses) != 0 {
+		msg = append(msg, "At least one Kafka broker address must be provided.")
+	}
+
+	if _, err := ka.IsGSSAPI(); err != nil {
+		msg = append(msg, err.Error())
+	}
+
+	if len(msg) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(msg, " "))
+}
+
+func (ka *KafkaArgs) IsGSSAPI() (bool, error) {
+	if ka.GssServiceName == "" && ka.GssRealm == "" && ka.GssPrincipal == "" &&
+		ka.GssKeyTabPath == "" && ka.GssKerberosConfigPath == "" {
+		return false, nil
+	}
+
+	if ka.GssServiceName == "" || ka.GssRealm == "" ||
+		ka.GssPrincipal == "" || ka.GssKerberosConfigPath == "" {
+		return false, errors.New("incomplete configuration for GSSAPI")
+	}
+
+	if ka.GssKeyTabPath == "" {
+		return false, errors.New("incomplete authentication information for GSSAPI")
+	}
+
+	return true, nil
+
 }

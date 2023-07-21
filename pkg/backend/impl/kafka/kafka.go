@@ -42,6 +42,9 @@ func (s *kafka) Info() *backend.Info {
 }
 
 func (s *kafka) Init(ctx context.Context) error {
+
+	// TODO Create client
+
 	return nil
 }
 
@@ -53,6 +56,8 @@ func (s *kafka) Start(ctx context.Context) error {
 }
 
 func (s *kafka) Produce(ctx context.Context, event *cloudevents.Event) error {
+	// TODO Produce
+
 	return nil
 }
 
