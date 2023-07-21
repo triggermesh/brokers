@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
@@ -19,12 +20,20 @@ import (
 	"github.com/triggermesh/brokers/pkg/config/broker"
 )
 
+const (
+	// Disconnect timeout
+	disconnectTimeout = time.Second * 20
+
+	// Unsubscribe timeout
+	unsubscribeTimeout = time.Second * 10
+)
+
 func New(args *KafkaArgs, logger *zap.SugaredLogger) backend.Interface {
 	return &kafka{
 		args:          args,
 		logger:        logger,
 		disconnecting: false,
-		subs:          make(map[string]subscription),
+		subs:          make(map[string]*subscription),
 	}
 }
 
@@ -38,7 +47,11 @@ type kafka struct {
 	client *kgo.Client
 
 	// subscription list indexed by the name.
-	subs map[string]subscription
+	subs map[string]*subscription
+
+	// Waitgroup that should be used to wait for subscribers
+	// before disconnecting.
+	wgSubs sync.WaitGroup
 
 	// disconnecting is set to avoid setting up new subscriptions
 	// when the broker is shutting down.
@@ -104,11 +117,57 @@ func (s *kafka) Start(ctx context.Context) error {
 	s.ctx = ctx
 	<-ctx.Done()
 
+	// This prevents new subscriptions from being setup
+	s.disconnecting = true
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for name := range s.subs {
+		s.unsubscribe(name)
+	}
+
+	// wait for all subscriptions to finish
+	// before returning.
+	allSubsFinished := make(chan struct{})
+	go func() {
+		defer close(allSubsFinished)
+		s.wgSubs.Wait()
+	}()
+
+	select {
+	case <-allSubsFinished:
+		// Clean exit.
+	case <-time.After(disconnectTimeout):
+		// Timed out, some events have not been delivered.
+		s.logger.Error(fmt.Sprintf("Disconnection from Redis timed out after %d", disconnectTimeout))
+	}
+
+	s.client.Close()
 	return nil
 }
 
 func (s *kafka) Produce(ctx context.Context, event *cloudevents.Event) error {
-	// TODO Produce
+	b, err := event.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("could not serialize CloudEvent: %w", err)
+	}
+
+	r := &kgo.Record{
+		Topic: s.args.Topic,
+		Value: b,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	if err := s.client.ProduceSync(ctx, r).FirstErr(); err != nil {
+		return fmt.Errorf("could not produce CloudEvent to backend: %w", err)
+	}
+
+	s.logger.Debug(fmt.Sprintf("CloudEvent %s/%s produced to the backend as %d",
+		event.Context.GetSource(),
+		event.Context.GetID(),
+		r.Offset))
 
 	return nil
 }
@@ -119,7 +178,58 @@ func (s *kafka) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// avoid subscriptions if disconnection is going on
+	if s.disconnecting {
+		return errors.New("cannot create new subscriptions while disconnecting")
+	}
+
+	if _, ok := s.subs[name]; ok {
+		return fmt.Errorf("subscription for %q alredy exists", name)
+	}
+
+	// TODO calculate bounds
+
+	kopts := append(s.kopts,
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+		kgo.ConsumerGroup(s.args.ConsumerGroupPrefix+"."+name))
+
+	client, err := kgo.NewClient(kopts...)
+	if err != nil {
+		return fmt.Errorf("client for subscription could not be created: %w", err)
+	}
+
+	// We don't use the parent context but create a new one so that we can control
+	// how subscriptions are finished by calling cancel at our will, either when the
+	// global context is called, or when unsubscribing.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	subs := &subscription{
+		instance: s.args.Instance,
+		topic:    s.args.Topic,
+		name:     name,
+		group:    s.args.ConsumerGroupPrefix,
+		// TODO exceed bounds
+		trackingEnabled: s.args.TrackingIDEnabled,
+
+		// caller's callback for dispatching events from Kafka.
+		ccbDispatch: ccb,
+
+		// cancel function let us control when we want to exit the subscription loop.
+		ctx:    ctx,
+		cancel: cancel,
+		// stoppedCh signals when a subscription has completely finished.
+		stoppedCh: make(chan struct{}),
+
+		client: client,
+		logger: s.logger,
+	}
+
+	s.subs[name] = subs
+	s.wgSubs.Add(1)
+	subs.start()
+
 	return nil
+
 }
 
 func (s *kafka) Unsubscribe(name string) {
@@ -129,6 +239,31 @@ func (s *kafka) Unsubscribe(name string) {
 }
 
 func (s *kafka) unsubscribe(name string) {
+	sub, ok := s.subs[name]
+	if !ok {
+		s.logger.Infow("Unsubscribe action was not needed since the subscription did not exist",
+			zap.String("name", name))
+		return
+	}
+
+	// Finish the subscription's context.
+	sub.cancel()
+
+	// Wait for the subscription to finish
+	select {
+	case <-sub.stoppedCh:
+		s.logger.Debugw("Graceful shutdown of subscription", zap.String("name", name))
+
+		// Clean exit.
+	case <-time.After(unsubscribeTimeout):
+		// Timed out, some events have not been delivered.
+		s.logger.Errorw(fmt.Sprintf("Unsubscribing from Redis timed out after %d", unsubscribeTimeout),
+			zap.String("name", name))
+	}
+
+	s.client.Close()
+	delete(s.subs, name)
+	s.wgSubs.Done()
 }
 
 func (s *kafka) Probe(ctx context.Context) error {

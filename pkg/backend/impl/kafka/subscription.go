@@ -18,32 +18,32 @@ const (
 	BackendIDAttribute = "triggermeshbackendid"
 )
 
-type exceedBounds func(id string) bool
+// type exceedBounds func(id string) bool
 
-func newExceedBounds(offset string) exceedBounds {
-	return func(id string) bool {
-		// Use the greater or equal here to make it
-		// exclusive on bounds. When the ID matches the
-		// one configured at the upper bound, the message
-		// wont be produced.
-		return id >= offset
-	}
-}
+// func newExceedBounds(offset string) exceedBounds {
+// 	return func(id string) bool {
+// 		// Use the greater or equal here to make it
+// 		// exclusive on bounds. When the ID matches the
+// 		// one configured at the upper bound, the message
+// 		// wont be produced.
+// 		return id >= offset
+// 	}
+// }
 
 type subscription struct {
-	instance            string
-	stream              string
-	name                string
-	group               string
-	checkBoundsExceeded exceedBounds
+	instance string
+	topic    string
+	name     string
+	group    string
+	// 	checkBoundsExceeded exceedBounds
 
 	trackingEnabled bool
 
 	// caller's callback for dispatching events from Redis.
 	ccbDispatch backend.ConsumerDispatcher
 
-	// caller's callback for subscription status changes
-	scb backend.SubscriptionStatusChange
+	// // caller's callback for subscription status changes
+	// scb backend.SubscriptionStatusChange
 
 	// cancel function let us control when the subscription loop should exit.
 	ctx    context.Context
@@ -51,7 +51,7 @@ type subscription struct {
 	// stoppedCh signals when a subscription has completely finished.
 	stoppedCh chan struct{}
 
-	client kgo.Client
+	client *kgo.Client
 	logger *zap.SugaredLogger
 }
 
@@ -59,7 +59,7 @@ func (s *subscription) start() {
 	s.logger.Infow("Starting Kafka consumer",
 		zap.String("group", s.group),
 		zap.String("instance", s.instance),
-		zap.String("stream", s.stream))
+		zap.String("topic", s.topic))
 	// Start reading all pending messages
 	// id := "0"
 
@@ -72,7 +72,7 @@ func (s *subscription) start() {
 		s.logger.Debugw("Waiting for last XReadGroup operation to finish before exiting subscription",
 			zap.String("group", s.group),
 			zap.String("instance", s.instance),
-			zap.String("stream", s.stream))
+			zap.String("topic", s.topic))
 		exitLoop = true
 	}()
 
@@ -255,16 +255,18 @@ func (s *subscription) start() {
 				// 	}
 				// }
 
-				// s.logger.Debugw("Exited Redis subscription",
-				// 	zap.String("group", s.group),
-				// 	zap.String("instance", s.instance),
-				// 	zap.String("stream", s.stream))
-
-				// // Close stoppedCh to signal external viewers that processing for this
-				// // subscription is no longer running.
-				// close(s.stoppedCh)
 			})
 		}
+
+		s.logger.Debugw("Exited Kafka subscription",
+			zap.String("group", s.group),
+			zap.String("instance", s.instance),
+			zap.String("topic", s.group))
+
+		// Close stoppedCh to signal external viewers that processing for this
+		// subscription is no longer running.
+		close(s.stoppedCh)
+
 	}()
 }
 

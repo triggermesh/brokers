@@ -25,7 +25,7 @@ type KafkaArgs struct {
 	// TLSKey           string   `help:"TLS Certificate key to connect to Redis." env:"TLS_KEY"`
 	// TLSCACertificate string   `help:"CA Certificate to connect to Redis." name:"tls-ca-certificate" env:"TLS_CA_CERTIFICATE"`
 
-	ConsumerGroup string `help:"Kafka consumer group name." env:"CONSUMER_GROUP" default:"default"`
+	ConsumerGroupPrefix string `help:"Kafka consumer group name." env:"CONSUMER_GROUP_PREFIX" default:"default"`
 	// Instance at the Kafka consumer group. Copied from the InstanceName at the global args.
 	Instance string `kong:"-"`
 
