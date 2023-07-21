@@ -2,10 +2,18 @@ package kafka
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
+
+	krbclient "github.com/jcmturner/gokrb5/v8/client"
+	krbconfig "github.com/jcmturner/gokrb5/v8/config"
+	"github.com/jcmturner/gokrb5/v8/keytab"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/sasl/kerberos"
 
 	"github.com/triggermesh/brokers/pkg/backend"
 	"github.com/triggermesh/brokers/pkg/config/broker"
@@ -22,6 +30,12 @@ func New(args *KafkaArgs, logger *zap.SugaredLogger) backend.Interface {
 
 type kafka struct {
 	args *KafkaArgs
+
+	// Client options for creating subscriptions
+	kopts []kgo.Opt
+
+	// Client for producing events to Kafka
+	client *kgo.Client
 
 	// subscription list indexed by the name.
 	subs map[string]subscription
@@ -43,9 +57,47 @@ func (s *kafka) Info() *backend.Info {
 
 func (s *kafka) Init(ctx context.Context) error {
 
-	// TODO Create client
+	s.kopts = []kgo.Opt{
+		kgo.SeedBrokers(s.args.Addresses...),
 
-	return nil
+		kgo.ConsumeTopics(s.args.Topic),
+		kgo.InstanceID(s.args.Instance),
+		kgo.DisableAutoCommit(),
+	}
+
+	if ok, _ := s.args.IsGSSAPI(); ok {
+		kt, err := keytab.Load(s.args.GssKeyTabPath)
+		if err != nil {
+			return fmt.Errorf("could not load keytab file: %w", err)
+		}
+
+		krbc, err := krbconfig.Load(s.args.GssKerberosConfigPath)
+		if err != nil {
+			return fmt.Errorf("could not load kerberos config file: %w", err)
+		}
+
+		s.kopts = append(s.kopts,
+			kgo.SASL(
+				kerberos.Auth{
+					Client: krbclient.NewWithKeytab(
+						s.args.GssPrincipal,
+						s.args.GssRealm,
+						kt,
+						krbc,
+					),
+					Service: s.args.GssServiceName,
+				}.AsMechanismWithClose(),
+			))
+	}
+
+	client, err := kgo.NewClient(s.kopts...)
+	if err != nil {
+		return fmt.Errorf("could not create kafka client: %w", err)
+	}
+
+	s.client = client
+
+	return s.Probe(ctx)
 }
 
 func (s *kafka) Start(ctx context.Context) error {
@@ -80,5 +132,9 @@ func (s *kafka) unsubscribe(name string) {
 }
 
 func (s *kafka) Probe(ctx context.Context) error {
-	return nil
+	if s.client == nil {
+		return errors.New("kafka client not configured")
+	}
+
+	return s.client.Ping(ctx)
 }
