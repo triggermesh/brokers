@@ -16,7 +16,7 @@ type KafkaArgs struct {
 	GssServiceName        string `help:"GSSAPI service name." env:"GSSAPI_SERVICE_NAME"`
 	GssRealm              string `help:"GSSAPI realm." env:"GSSAPI_REALM"`
 	GssPrincipal          string `help:"GSSAPI principal." env:"GSSAPI_PRINCIPAL"`
-	GssKeyTabPath         string `help:"GSSAPI keytab path." env:"GSSAPI_KEYTAB_PATH"`
+	GssKeyTabPath         string `help:"GSSAPI keytab path." name:"gss-keytab-path" env:"GSSAPI_KEYTAB_PATH"`
 	GssKerberosConfigPath string `help:"GSSAPI service name." env:"GSSAPI_KERBEROS_CONFIG_PATH"`
 
 	// TLSEnabled       bool     `help:"TLS enablement for Redis connection." env:"TLS_ENABLED" default:"false"`
@@ -37,7 +37,7 @@ func (ka *KafkaArgs) Validate() error {
 
 	// Since there is a default value at addresses, we only check that cluster addresses and a value for
 	// and standalone instance that is different to the default must not be provided.
-	if len(ka.Addresses) != 0 {
+	if len(ka.Addresses) == 0 {
 		msg = append(msg, "At least one Kafka broker address must be provided.")
 	}
 

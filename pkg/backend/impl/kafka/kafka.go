@@ -75,7 +75,6 @@ func (s *kafka) Init(ctx context.Context) error {
 
 		kgo.ConsumeTopics(s.args.Topic),
 		kgo.InstanceID(s.args.Instance),
-		kgo.DisableAutoCommit(),
 	}
 
 	if ok, _ := s.args.IsGSSAPI(); ok {
@@ -191,7 +190,8 @@ func (s *kafka) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 
 	kopts := append(s.kopts,
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-		kgo.ConsumerGroup(s.args.ConsumerGroupPrefix+"."+name))
+		kgo.ConsumerGroup(s.args.ConsumerGroupPrefix+"."+name),
+		kgo.DisableAutoCommit())
 
 	client, err := kgo.NewClient(kopts...)
 	if err != nil {
@@ -206,8 +206,8 @@ func (s *kafka) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 	subs := &subscription{
 		instance: s.args.Instance,
 		topic:    s.args.Topic,
-		name:     name,
-		group:    s.args.ConsumerGroupPrefix,
+		// name:     name,
+		group: s.args.ConsumerGroupPrefix,
 		// TODO exceed bounds
 		trackingEnabled: s.args.TrackingIDEnabled,
 

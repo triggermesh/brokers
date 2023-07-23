@@ -33,8 +33,8 @@ const (
 type subscription struct {
 	instance string
 	topic    string
-	name     string
-	group    string
+	// name     string
+	group string
 	// 	checkBoundsExceeded exceedBounds
 
 	trackingEnabled bool
@@ -136,20 +136,20 @@ func (s *subscription) start() {
 				// 	}
 				// }
 
-				// if s.trackingEnabled {
-				// 	if err = ce.Context.SetExtension(BackendIDAttribute, msg.ID); err != nil {
-				// 		s.logger.Errorw(fmt.Sprintf("could not set %s attributes for the Redis message %s. Tracking will not be possible.", BackendIDAttribute, msg.ID),
-				// 			zap.Error(err))
-				// 	}
-				// }
+				if s.trackingEnabled {
+					if err := ce.Context.SetExtension(BackendIDAttribute, record.Offset); err != nil {
+						s.logger.Errorw(fmt.Sprintf("could not set %s attributes for the Kafka offset %d. Tracking will not be possible.", BackendIDAttribute, record.Offset),
+							zap.Error(err))
+					}
+				}
 
-				// go func(msgID string) {
-				// 	s.ccbDispatch(ce)
-				// 	if err := s.ack(msgID); err != nil {
-				// 		s.logger.Errorw(fmt.Sprintf("could not ACK the Redis message %s containing CloudEvent %s", msgID, ce.Context.GetID()),
-				// 			zap.Error(err))
-				// 	}
-				// }(msg.ID)
+				go func(rs *kgo.Record) {
+					s.ccbDispatch(ce)
+					if err := s.client.CommitRecords(s.ctx, rs); err != nil {
+						s.logger.Errorw(fmt.Sprintf("could not commit the Kafka offset %d containing CloudEvent %s", rs.Offset, ce.Context.GetID()),
+							zap.Error(err))
+					}
+				}(record)
 
 				// // If we are processing pending messages the ACK might take a
 				// // while to be sent. We need to set the message ID so that the
