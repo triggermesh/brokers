@@ -293,16 +293,16 @@ func boundsResolver(bounds *broker.TriggerBounds) (startOp kgo.Offset, eb *endBo
 			return
 		}
 
-		startOp.AfterMilli(st.UnixMilli())
+		startOp = startOp.AfterMilli(st.UnixMilli())
 	} else if start := bounds.ByID.GetStart(); start != "" {
 		i, err := strconv.ParseInt(start, 10, 64)
 		if err != nil {
 			e = fmt.Errorf("parsing bounds start id: %w", err)
 			return
 		}
-		startOp.At(i)
+		startOp = startOp.At(i)
 	} else {
-		startOp.AfterMilli(time.Now().UnixMilli())
+		startOp = startOp.AfterMilli(time.Now().UnixMilli())
 	}
 
 	endd, endid := bounds.ByDate.GetEnd(), bounds.ByID.GetEnd()
