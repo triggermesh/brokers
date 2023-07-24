@@ -6,6 +6,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -18,24 +19,44 @@ const (
 	BackendIDAttribute = "triggermeshbackendid"
 )
 
-// type exceedBounds func(id string) bool
+type exceedBounds func(r *kgo.Record) bool
 
-// func newExceedBounds(offset string) exceedBounds {
-// 	return func(id string) bool {
-// 		// Use the greater or equal here to make it
-// 		// exclusive on bounds. When the ID matches the
-// 		// one configured at the upper bound, the message
-// 		// wont be produced.
-// 		return id >= offset
-// 	}
-// }
+type endBound struct {
+	id   int64
+	time *time.Time
+}
+
+func newExceedBounds(eb *endBound) exceedBounds {
+	switch {
+	case eb == nil:
+		return nil
+
+	case eb.id == 0 && eb.time == nil:
+		return nil
+
+	case eb.id == 0:
+		return func(r *kgo.Record) bool {
+			return r.Timestamp.After(*eb.time)
+		}
+
+	case eb.time == nil:
+		return func(r *kgo.Record) bool {
+			return r.Offset >= eb.id
+		}
+
+	default:
+		return func(r *kgo.Record) bool {
+			return r.Offset >= eb.id || r.Timestamp.After(*eb.time)
+		}
+	}
+}
 
 type subscription struct {
 	instance string
 	topic    string
 	// name     string
-	group string
-	// 	checkBoundsExceeded exceedBounds
+	group               string
+	checkBoundsExceeded exceedBounds
 
 	trackingEnabled bool
 
@@ -69,7 +90,7 @@ func (s *subscription) start() {
 	go func() {
 		<-s.ctx.Done()
 
-		s.logger.Debugw("Waiting for last XReadGroup operation to finish before exiting subscription",
+		s.logger.Debugw("Waiting for last fetch operation to finish before exiting subscription",
 			zap.String("group", s.group),
 			zap.String("instance", s.instance),
 			zap.String("topic", s.topic))
@@ -124,6 +145,7 @@ func (s *subscription) start() {
 					return
 				}
 
+				// TODO add checkbounds check
 				// // If an end date has been specified, compare the current message ID
 				// // with the end date. If the message ID is newer than the end date,
 				// // exit the loop.

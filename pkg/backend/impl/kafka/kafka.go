@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -190,9 +191,13 @@ func (s *kafka) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 	}
 
 	// TODO calculate bounds
+	startOpt, eb, err := boundsResolver(bounds)
+	if err != nil {
+		return fmt.Errorf("subscription bounds could not be resolved: %w", err)
+	}
 
 	kopts := append(s.kopts,
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+		kgo.ConsumeResetOffset(startOpt),
 		kgo.ConsumerGroup(s.args.ConsumerGroupPrefix+"."+name),
 		kgo.DisableAutoCommit())
 
@@ -210,8 +215,9 @@ func (s *kafka) Subscribe(name string, bounds *broker.TriggerBounds, ccb backend
 		instance: s.args.Instance,
 		topic:    s.args.Topic,
 		// name:     name,
-		group: s.args.ConsumerGroupPrefix,
-		// TODO exceed bounds
+		group:               s.args.ConsumerGroupPrefix,
+		checkBoundsExceeded: newExceedBounds(eb),
+
 		trackingEnabled: s.args.TrackingIDEnabled,
 
 		// caller's callback for dispatching events from Kafka.
@@ -275,4 +281,52 @@ func (s *kafka) Probe(ctx context.Context) error {
 	}
 
 	return s.client.Ping(ctx)
+}
+
+func boundsResolver(bounds *broker.TriggerBounds) (startOp kgo.Offset, eb *endBound, e error) {
+	startOp = kgo.NewOffset()
+
+	if start := bounds.ByDate.GetStart(); start != "" {
+		st, err := time.Parse(time.RFC3339Nano, start)
+		if err != nil {
+			e = fmt.Errorf("parsing bounds start date: %w", err)
+			return
+		}
+
+		startOp.AfterMilli(st.UnixMilli())
+	} else if start := bounds.ByID.GetStart(); start != "" {
+		i, err := strconv.ParseInt(start, 10, 64)
+		if err != nil {
+			e = fmt.Errorf("parsing bounds start id: %w", err)
+			return
+		}
+		startOp.At(i)
+	} else {
+		startOp.AfterMilli(time.Now().UnixMilli())
+	}
+
+	endd, endid := bounds.ByDate.GetEnd(), bounds.ByID.GetEnd()
+	if endd == "" && endid == "" {
+		return
+	}
+
+	eb = &endBound{}
+
+	if endid != "" {
+		i, err := strconv.ParseInt(endid, 10, 64)
+		if err != nil {
+			e = fmt.Errorf("parsing bounds end id: %w", err)
+			return
+		}
+		eb.id = i
+	}
+
+	en, err := time.Parse(time.RFC3339, endd)
+	if err != nil {
+		e = fmt.Errorf("parsing bounds end date: %w", err)
+		return
+	}
+
+	eb.time = &en
+	return
 }
