@@ -17,6 +17,8 @@ import (
 	krbclient "github.com/jcmturner/gokrb5/v8/client"
 	krbconfig "github.com/jcmturner/gokrb5/v8/config"
 	"github.com/jcmturner/gokrb5/v8/keytab"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl/kerberos"
 
@@ -112,6 +114,16 @@ func (s *kafka) Init(ctx context.Context) error {
 	}
 
 	s.client = client
+
+	// Do our best to ensure the Kafka topic exists. If there is an error,
+	// maybe due to lack of permissions, skip and log. We will assume that
+	// if no permissions are granted, the topic has been pre-provided.
+	if res, err := kadm.NewClient(client).CreateTopic(ctx, -1, -1, nil, s.args.Topic); err != nil && err != kerr.TopicAlreadyExists {
+		s.logger.Warnw("Could not ensure that topic exists. We will continue under the premise that it is already provided.",
+			zap.String("topic", s.args.Topic), zap.Error(err))
+	} else {
+		s.logger.Debugw("Kafka topic ensured", zap.Any("topic", res))
+	}
 
 	return s.Probe(ctx)
 }
