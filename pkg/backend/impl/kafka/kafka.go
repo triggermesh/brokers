@@ -164,7 +164,7 @@ func (s *kafka) Produce(ctx context.Context, event *cloudevents.Event) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	if err := s.client.ProduceSync(ctx, r).FirstErr(); err != nil {
-		return fmt.Errorf("could not produce CloudEvent to backend: %w", err)
+		return fmt.Errorf("could not produce CloudEvent to Kafka topic %q: %w", s.args.Topic, err)
 	}
 
 	s.logger.Debug(fmt.Sprintf("CloudEvent %s/%s produced to the backend as %d",
@@ -285,6 +285,11 @@ func (s *kafka) Probe(ctx context.Context) error {
 
 func boundsResolver(bounds *broker.TriggerBounds) (startOp kgo.Offset, eb *endBound, e error) {
 	startOp = kgo.NewOffset()
+
+	if bounds == nil {
+		startOp = startOp.AfterMilli(time.Now().UnixMilli())
+		return
+	}
 
 	if start := bounds.ByDate.GetStart(); start != "" {
 		st, err := time.Parse(time.RFC3339Nano, start)
