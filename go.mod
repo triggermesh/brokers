@@ -55,7 +55,7 @@ require (
 require (
 	github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.14.0
 	github.com/jcmturner/gokrb5/v8 v8.4.4
-	github.com/twmb/franz-go v1.14.4
+	github.com/twmb/franz-go v1.15.0
 	github.com/twmb/franz-go/pkg/kadm v1.9.0
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.opencensus.io v0.24.0
