@@ -34,9 +34,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rickb777/plural v1.4.1 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/term v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -55,8 +55,8 @@ require (
 require (
 	github.com/cloudevents/sdk-go/observability/opencensus/v2 v2.14.0
 	github.com/jcmturner/gokrb5/v8 v8.4.4
-	github.com/twmb/franz-go v1.14.4
-	github.com/twmb/franz-go/pkg/kadm v1.9.0
+	github.com/twmb/franz-go v1.15.0
+	github.com/twmb/franz-go/pkg/kadm v1.9.2
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.5.3
@@ -90,7 +90,7 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.16.7 // indirect
+	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -106,7 +106,7 @@ require (
 	github.com/twmb/franz-go/pkg/kmsg v1.6.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/crypto v0.13.0 // indirect
 	google.golang.org/api v0.103.0 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	google.golang.org/grpc v1.53.0 // indirect
